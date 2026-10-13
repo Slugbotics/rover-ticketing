@@ -1,0 +1,2 @@
+.entry-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:5px}.entry-card-head .eyebrow{margin-bottom:0}.entry-card-head .theme-toggle{flex:0 0 auto}
+html[data-theme='dark'] .entry-stats strong{color:#e8f1f4}html[data-theme='dark'] .entry-stats span{color:#b4c8d0}html[data-theme='dark'] .entry-stats{color:#b4c8d0}
