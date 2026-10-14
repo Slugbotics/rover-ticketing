@@ -94,3 +94,4 @@ html[data-theme='dark'] .scope-picker{border-color:#38515f}
 html[data-theme='dark'] .scope-picker .check-control{color:#b4c8d0}
 html[data-theme='dark'] .text-button.danger{color:#ff9b93}
 html[data-theme='dark'] .success-note{color:#8fd3a5}
+.pending-row{background:var(--soft)}.pending-row b{font-style:italic}html[data-theme='dark'] .pending-row{background:#172a38}

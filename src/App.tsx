@@ -57,13 +57,16 @@ import {
 import { LeadSignIn } from "./LeadSignIn";
 import {
   loadLeadAccess,
+  cancelPendingLead,
   grantLead,
   loadLeadRoster,
+  loadPendingLeads,
   revokeLead,
   signInLead,
   signOutLead,
   type LeadAccess,
   type LeadRosterEntry,
+  type PendingLeadGrant,
 } from "./leadAuth";
 import { LeadTicketForm, type TicketDraft } from "./LeadTicketForm";
 import {
@@ -1586,6 +1589,7 @@ function LeadOverviewBase({
 }
 function AdminView({ currentUserId }: { currentUserId: string }) {
   const [roster, setRoster] = useState<LeadRosterEntry[] | null>(null);
+  const [pending, setPending] = useState<PendingLeadGrant[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1595,7 +1599,12 @@ function AdminView({ currentUserId }: { currentUserId: string }) {
 
   async function refresh() {
     try {
-      setRoster(await loadLeadRoster());
+      const [leads, waiting] = await Promise.all([
+        loadLeadRoster(),
+        loadPendingLeads(),
+      ]);
+      setRoster(leads);
+      setPending(waiting);
     } catch (reason) {
       setError(errorMessage(reason, "Unable to load lead accounts."));
     }
@@ -1611,7 +1620,7 @@ function AdminView({ currentUserId }: { currentUserId: string }) {
         : [...current, subteam],
     );
   }
-  function edit(lead: LeadRosterEntry) {
+  function edit(lead: { email: string; role: LeadAccess["role"]; scopes: string[] }) {
     setEmail(lead.email);
     setRole(lead.role);
     setScopes(lead.scopes);
@@ -1629,14 +1638,33 @@ function AdminView({ currentUserId }: { currentUserId: string }) {
     setError("");
     setNotice("");
     try {
-      await grantLead(email, role, scopes);
-      setNotice(`Saved lead access for ${email.trim()}.`);
+      const result = await grantLead(email, role, scopes);
+      setNotice(
+        result === "granted"
+          ? `Saved lead access for ${email.trim()}.`
+          : `No confirmed account for ${email.trim()} yet. Access will apply automatically once they accept their invite.`,
+      );
       setEmail("");
       setRole("subteam_lead");
       setScopes([]);
       await refresh();
     } catch (reason) {
       setError(errorMessage(reason, "Unable to grant lead access."));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function cancelPending(grant: PendingLeadGrant) {
+    if (!window.confirm(`Cancel the pending lead access for ${grant.email}?`)) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await cancelPendingLead(grant.email);
+      setNotice(`Cancelled pending access for ${grant.email}.`);
+      await refresh();
+    } catch (reason) {
+      setError(errorMessage(reason, "Unable to cancel pending access."));
     } finally {
       setBusy(false);
     }
@@ -1672,9 +1700,10 @@ function AdminView({ currentUserId }: { currentUserId: string }) {
       <form className="admin-grant" onSubmit={grant}>
         <h2>Grant lead access</h2>
         <p className="muted">
-          First invite the person under Supabase Authentication &gt; Users &gt;
-          Add user. Then enter the same email here. Granting to an existing
-          lead updates their role and subteams.
+          Enter their email any time. If they have no account yet, access is
+          saved as pending and applies automatically once they accept their
+          invite from Supabase Authentication &gt; Users &gt; Add user. Saving
+          for an existing lead updates their role and subteams.
         </p>
         <div className="admin-grant-fields">
           <label>
@@ -1770,6 +1799,35 @@ function AdminView({ currentUserId }: { currentUserId: string }) {
                   Remove
                 </button>
               )}
+            </span>
+          </div>
+        ))}
+        {pending.map((grant) => (
+          <div className="table-row admin-table pending-row" key={grant.email}>
+            <span>
+              <b>{grant.email}</b>
+              <small>Pending · waiting for a confirmed account</small>
+            </span>
+            <span>
+              {grant.role === "administrator" ? "Administrator" : "Subteam lead"}
+            </span>
+            <span>
+              {grant.role === "administrator"
+                ? "All subteams"
+                : grant.scopes.join(" · ")}
+            </span>
+            <span className="admin-actions">
+              <button className="text-button" type="button" onClick={() => edit(grant)}>
+                Edit
+              </button>
+              <button
+                className="text-button danger"
+                type="button"
+                disabled={busy}
+                onClick={() => void cancelPending(grant)}
+              >
+                Cancel
+              </button>
             </span>
           </div>
         ))}

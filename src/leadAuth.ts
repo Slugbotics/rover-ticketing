@@ -73,13 +73,47 @@ export async function loadLeadRoster(): Promise<LeadRosterEntry[]> {
   );
 }
 
-export async function grantLead(email: string, role: LeadAccess["role"], scopes: string[]) {
+export type PendingLeadGrant = {
+  email: string;
+  role: LeadAccess["role"];
+  scopes: string[];
+  createdAt: string;
+};
+
+// Returns "granted" when the account already exists and is confirmed, or "pending"
+// when the grant is stored and will apply once that email's account is confirmed.
+export async function grantLead(
+  email: string,
+  role: LeadAccess["role"],
+  scopes: string[],
+): Promise<"granted" | "pending"> {
   if (!supabase) throw new Error("Supabase is not configured.");
-  const { error } = await supabase.rpc("admin_grant_lead", {
+  const { data, error } = await supabase.rpc("admin_grant_lead", {
     lead_email: email.trim(),
     lead_role: role,
     lead_scopes: role === "administrator" ? [] : scopes,
   });
+  if (error) throw error;
+  return data ? "granted" : "pending";
+}
+
+export async function loadPendingLeads(): Promise<PendingLeadGrant[]> {
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { data, error } = await supabase.rpc("admin_list_pending_leads");
+  if (error) throw error;
+  return (data || []).map(
+    (row: { email: string; role: LeadAccess["role"]; scopes: string[]; created_at: string }) => ({
+      email: row.email,
+      role: row.role,
+      scopes: row.scopes || [],
+      createdAt: row.created_at,
+    }),
+  );
+}
+
+export async function cancelPendingLead(email: string) {
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.rpc("admin_cancel_pending_lead", { lead_email: email });
   if (error) throw error;
 }
 
