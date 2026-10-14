@@ -57,7 +57,9 @@ import {
 import { LeadSignIn } from "./LeadSignIn";
 import {
   loadLeadAccess,
+  grantLead,
   loadLeadRoster,
+  revokeLead,
   signInLead,
   signOutLead,
   type LeadAccess,
@@ -711,7 +713,7 @@ export function App() {
               onCreateTicket={() => setShowTicketForm(true)}
             />
           ) : view === "admin" && isAdmin ? (
-            <AdminView />
+            <AdminView currentUserId={sessionId} />
           ) : view === "review" && leadAccess ? (
             <ReviewQueueView
               tickets={queue}
@@ -1582,14 +1584,79 @@ function LeadOverviewBase({
     </>
   );
 }
-function AdminView() {
+function AdminView({ currentUserId }: { currentUserId: string }) {
   const [roster, setRoster] = useState<LeadRosterEntry[] | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<LeadAccess["role"]>("subteam_lead");
+  const [scopes, setScopes] = useState<string[]>([]);
+
+  async function refresh() {
+    try {
+      setRoster(await loadLeadRoster());
+    } catch (reason) {
+      setError(errorMessage(reason, "Unable to load lead accounts."));
+    }
+  }
   useEffect(() => {
-    loadLeadRoster()
-      .then(setRoster)
-      .catch((reason: Error) => setError(reason.message));
+    void refresh();
   }, []);
+
+  function toggleScope(subteam: string) {
+    setScopes((current) =>
+      current.includes(subteam)
+        ? current.filter((item) => item !== subteam)
+        : [...current, subteam],
+    );
+  }
+  function edit(lead: LeadRosterEntry) {
+    setEmail(lead.email);
+    setRole(lead.role);
+    setScopes(lead.scopes);
+    setError("");
+    setNotice("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  async function grant(event: React.FormEvent) {
+    event.preventDefault();
+    if (role === "subteam_lead" && scopes.length === 0) {
+      setError("Choose at least one subteam for a subteam lead.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await grantLead(email, role, scopes);
+      setNotice(`Saved lead access for ${email.trim()}.`);
+      setEmail("");
+      setRole("subteam_lead");
+      setScopes([]);
+      await refresh();
+    } catch (reason) {
+      setError(errorMessage(reason, "Unable to grant lead access."));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function revoke(lead: LeadRosterEntry) {
+    if (!window.confirm(`Remove lead access for ${lead.email}? Their account stays, but loses lead permissions.`)) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await revokeLead(lead.userId);
+      setNotice(`Removed lead access for ${lead.email}.`);
+      await refresh();
+    } catch (reason) {
+      setError(errorMessage(reason, "Unable to remove lead access."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <div className="page-heading">
@@ -1597,46 +1664,89 @@ function AdminView() {
           <p className="eyebrow">ADMINISTRATION / ACCESS</p>
           <h1>Lead access</h1>
           <p className="muted">
-            Lead authorization and subteam scopes from Supabase.
+            Grant, change, or remove lead permissions. Changes take effect the
+            next time that lead signs in.
           </p>
         </div>
       </div>
-      <div className="admin-warning">
-        <ShieldCheck size={22} />
-        <div>
-          <h2>Permissioned workspace</h2>
-          <p>
-            Discord usernames are display identities only. Lead permissions come
-            from explicitly authorized Supabase accounts and are enforced by
-            database policies. To add a lead, create the account under Supabase
-            Authentication &gt; Users, then insert its UID into{" "}
-            <code>public.leads</code> (and <code>public.lead_scopes</code> for
-            subteam leads) in the SQL editor.
-          </p>
-        </div>
-      </div>
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
+      <form className="admin-grant" onSubmit={grant}>
+        <h2>Grant lead access</h2>
+        <p className="muted">
+          First invite the person under Supabase Authentication &gt; Users &gt;
+          Add user. Then enter the same email here. Granting to an existing
+          lead updates their role and subteams.
         </p>
-      )}
+        <div className="admin-grant-fields">
+          <label>
+            Email
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="lead@example.com"
+            />
+          </label>
+          <label>
+            Role
+            <select
+              value={role}
+              onChange={(event) => setRole(event.target.value as LeadAccess["role"])}
+            >
+              <option value="subteam_lead">Subteam lead</option>
+              <option value="administrator">Administrator</option>
+            </select>
+          </label>
+        </div>
+        {role === "subteam_lead" ? (
+          <fieldset className="scope-picker">
+            <legend>Subteams</legend>
+            {subteams.map((subteam) => (
+              <label className="check-control" key={subteam}>
+                <input
+                  type="checkbox"
+                  checked={scopes.includes(subteam)}
+                  onChange={() => toggleScope(subteam)}
+                />{" "}
+                {subteam}
+              </label>
+            ))}
+          </fieldset>
+        ) : (
+          <p className="muted small-note">
+            Administrators can review every subteam and manage leads.
+          </p>
+        )}
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && <p className="success-note">{notice}</p>}
+        <button className="button primary" type="submit" disabled={busy}>
+          <ShieldCheck size={15} /> {busy ? "Saving..." : "Save lead access"}
+        </button>
+      </form>
       <div className="lead-table">
-        <div className="table-head">
+        <div className="table-head admin-table">
           <span>Lead account</span>
           <span>Role</span>
           <span>Scopes</span>
-          <span>Added</span>
+          <span>Actions</span>
         </div>
         {roster === null && !error && (
-          <div className="table-row">
+          <div className="table-row admin-table">
             <span>Loading lead accounts...</span>
           </div>
         )}
         {roster?.map((lead) => (
-          <div className="table-row" key={lead.userId}>
+          <div className="table-row admin-table" key={lead.userId}>
             <span>
-              <b>{lead.displayName || "Lead account"}</b>
-              <small>{lead.userId}</small>
+              <b>{lead.email}</b>
+              <small>
+                {lead.userId === currentUserId ? "You · " : ""}added{" "}
+                {formatDate(lead.createdAt)}
+              </small>
             </span>
             <span>
               {lead.role === "administrator" ? "Administrator" : "Subteam lead"}
@@ -1646,7 +1756,21 @@ function AdminView() {
                 ? "All subteams"
                 : lead.scopes.join(" · ") || "No scopes"}
             </span>
-            <span>{formatDate(lead.createdAt)}</span>
+            <span className="admin-actions">
+              <button className="text-button" type="button" onClick={() => edit(lead)}>
+                Edit
+              </button>
+              {lead.userId !== currentUserId && (
+                <button
+                  className="text-button danger"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void revoke(lead)}
+                >
+                  Remove
+                </button>
+              )}
+            </span>
           </div>
         ))}
       </div>

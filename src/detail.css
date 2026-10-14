@@ -73,3 +73,24 @@ html[data-theme='dark'] .review-row{background:#122331;border-color:#29404f}
 html[data-theme='dark'] .status-error{border-color:#29404f}
 .button:disabled{opacity:.6;cursor:default}
 .identity-name{font-size:12px;margin:0 0 12px;color:var(--muted)}.identity-name strong{color:var(--navy)}html[data-theme='dark'] .identity-name strong{color:#edf5f7}
+
+/* Lead management. */
+.admin-grant{background:#fff;border:1px solid var(--line);padding:22px 24px;margin-bottom:22px}
+.admin-grant h2{font-size:15px;color:var(--navy);margin:0 0 6px}
+.admin-grant>.muted{margin-bottom:14px}
+.admin-grant-fields{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.admin-grant-fields label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:700;color:var(--navy)}
+.admin-grant-fields input,.admin-grant-fields select{border:1px solid var(--line);padding:10px;font-size:12px;background:#fff;color:var(--navy)}
+.scope-picker{border:1px solid var(--line);padding:10px 14px 4px;margin:0 0 12px;display:flex;flex-wrap:wrap;gap:4px 18px}
+.scope-picker legend{font-size:11px;font-weight:700;color:var(--navy);padding:0 4px}
+.admin-grant .form-error,.admin-grant .success-note{margin:0 0 12px}
+.admin-actions{display:flex;gap:14px}
+.text-button.danger{color:#b24e4e}
+@media(max-width:620px){.admin-grant-fields{grid-template-columns:1fr}}
+html[data-theme='dark'] .admin-grant{background:#122331;border-color:#29404f}
+html[data-theme='dark'] .admin-grant h2,html[data-theme='dark'] .admin-grant-fields label,html[data-theme='dark'] .scope-picker legend{color:#edf5f7}
+html[data-theme='dark'] .admin-grant-fields input,html[data-theme='dark'] .admin-grant-fields select{background:#172d3c;border-color:#38515f;color:#e5eef2}
+html[data-theme='dark'] .scope-picker{border-color:#38515f}
+html[data-theme='dark'] .scope-picker .check-control{color:#b4c8d0}
+html[data-theme='dark'] .text-button.danger{color:#ff9b93}
+html[data-theme='dark'] .success-note{color:#8fd3a5}

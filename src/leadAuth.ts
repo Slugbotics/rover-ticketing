@@ -7,9 +7,9 @@ export type LeadAccess = {
 
 export type LeadRosterEntry = {
   userId: string;
+  email: string;
   role: LeadAccess["role"];
   scopes: string[];
-  displayName: string | null;
   createdAt: string;
 };
 
@@ -56,36 +56,35 @@ export async function signOutLead() {
   if (error) throw error;
 }
 
-// Administrators can read every lead and scope row through RLS; other callers
-// only see their own row.
+// Lead management goes through admin-only database functions, which re-check that
+// the caller is an administrator and protect the last administrator.
 export async function loadLeadRoster(): Promise<LeadRosterEntry[]> {
   if (!supabase) throw new Error("Supabase is not configured.");
-  const [
-    { data: leads, error: leadsError },
-    { data: scopes, error: scopesError },
-  ] = await Promise.all([
-    supabase.from("leads").select("user_id, role, created_at").order("created_at"),
-    supabase.from("lead_scopes").select("user_id, subteam"),
-  ]);
-  if (leadsError || scopesError) throw leadsError || scopesError;
-  const ids = (leads || []).map((lead) => lead.user_id);
-  const { data: profiles, error: profilesError } = ids.length
-    ? await supabase
-        .from("member_profiles")
-        .select("user_id, discord_username")
-        .in("user_id", ids)
-    : { data: [], error: null };
-  if (profilesError) throw profilesError;
-  const names = new Map(
-    (profiles || []).map((profile) => [profile.user_id, profile.discord_username]),
+  const { data, error } = await supabase.rpc("admin_list_leads");
+  if (error) throw error;
+  return (data || []).map(
+    (row: { user_id: string; email: string; role: LeadAccess["role"]; scopes: string[]; created_at: string }) => ({
+      userId: row.user_id,
+      email: row.email,
+      role: row.role,
+      scopes: row.scopes || [],
+      createdAt: row.created_at,
+    }),
   );
-  return (leads || []).map((lead) => ({
-    userId: lead.user_id,
-    role: lead.role,
-    scopes: (scopes || [])
-      .filter((scope) => scope.user_id === lead.user_id)
-      .map((scope) => scope.subteam),
-    displayName: names.get(lead.user_id) || null,
-    createdAt: lead.created_at,
-  }));
+}
+
+export async function grantLead(email: string, role: LeadAccess["role"], scopes: string[]) {
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.rpc("admin_grant_lead", {
+    lead_email: email.trim(),
+    lead_role: role,
+    lead_scopes: role === "administrator" ? [] : scopes,
+  });
+  if (error) throw error;
+}
+
+export async function revokeLead(userId: string) {
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.rpc("admin_revoke_lead", { lead_user: userId });
+  if (error) throw error;
 }
