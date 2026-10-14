@@ -420,15 +420,6 @@ export function App() {
     setDraftUsername("");
   }
 
-  async function updateUsername(nextUsername: string) {
-    const clean = nextUsername.trim();
-    if (clean.length < 2) return;
-    if (hasSupabaseConfig) await saveMemberUsername(sessionId, clean);
-    else sessionStorage.setItem("rover-username", clean);
-    setUsername(clean);
-    setShowUsername(false);
-  }
-
   async function handleLeadSignIn(email: string, password: string) {
     const result = await signInLead(email, password);
     // The lead account replaces the anonymous member session, so adopt its
@@ -575,31 +566,21 @@ export function App() {
               <ChevronRight size={15} />
             </button>
             {showUsername && (
-              <form
-                className="identity-popover"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void updateUsername(draftUsername);
-                }}
-              >
-                <label htmlFor="change-name">Discord username</label>
-                <input
-                  id="change-name"
-                  value={draftUsername}
-                  onChange={(e) => setDraftUsername(e.target.value)}
-                  placeholder={username}
-                />
-                <button className="button primary" type="submit">
-                  Update username
-                </button>
+              <div className="identity-popover">
+                <p className="identity-name">
+                  Signed in as <strong>{username}</strong>
+                </p>
                 <button
-                  className="text-button"
+                  className="button primary full"
                   type="button"
-                  onClick={() => void resetSession()}
+                  onClick={() => {
+                    setShowUsername(false);
+                    void (leadAccess ? handleLeadSignOut() : resetSession());
+                  }}
                 >
-                  Start new session
+                  <LogOut size={15} /> Sign out
                 </button>
-              </form>
+              </div>
             )}
           </div>
         </div>

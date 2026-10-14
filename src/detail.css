@@ -72,3 +72,4 @@ html[data-theme='dark'] .review-banner span,html[data-theme='dark'] .review-meta
 html[data-theme='dark'] .review-row{background:#122331;border-color:#29404f}
 html[data-theme='dark'] .status-error{border-color:#29404f}
 .button:disabled{opacity:.6;cursor:default}
+.identity-name{font-size:12px;margin:0 0 12px;color:var(--muted)}.identity-name strong{color:var(--navy)}html[data-theme='dark'] .identity-name strong{color:#edf5f7}
