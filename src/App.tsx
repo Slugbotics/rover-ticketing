@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity as ActivityIcon,
   ArrowLeft,
@@ -97,6 +97,7 @@ export function App() {
   const [unassigned, setUnassigned] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showUsername, setShowUsername] = useState(false);
+  const identityRef = useRef<HTMLDivElement>(null);
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("rover-theme") !== "light",
   );
@@ -112,6 +113,23 @@ export function App() {
     document.documentElement.dataset.theme = darkMode ? "dark" : "light";
     localStorage.setItem("rover-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  useEffect(() => {
+    if (!showUsername) return;
+    function closeOnOutside(event: MouseEvent) {
+      if (!identityRef.current?.contains(event.target as Node))
+        setShowUsername(false);
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setShowUsername(false);
+    }
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showUsername]);
 
   useEffect(() => {
     if (!hasSupabaseConfig) return;
@@ -189,6 +207,7 @@ export function App() {
   function openTicket(id: string) {
     setSelectedId(id);
     history.pushState({}, "", `?ticket=${id}`);
+    window.scrollTo({ top: 0 });
   }
   function closeTicket() {
     setSelectedId(null);
@@ -293,33 +312,42 @@ export function App() {
       }
     }
   }
-  async function addSharedComment(ticketId: string, body: string) {
+  async function addSharedComment(
+    ticketId: string,
+    body: string,
+    parentId?: string,
+  ) {
     if (hasSupabaseConfig) {
-      await addComment(ticketId, body);
+      await addComment(ticketId, body, parentId);
       setTickets(await loadTickets());
     } else
       updateTicket(
         ticketId,
         {
           comments: [
+            ...(tickets.find((ticket) => ticket.id === ticketId)?.comments ||
+              []),
             {
               id: crypto.randomUUID(),
               author: username,
               body,
               createdAt: new Date().toISOString(),
+              parentId,
             },
-            ...(tickets.find((ticket) => ticket.id === ticketId)?.comments ||
-              []),
           ],
         },
-        "added a comment",
+        parentId ? "replied to a comment" : "added a comment",
       );
   }
-  async function createSubticket(parent: Ticket, title: string) {
+  async function createSubticket(
+    parent: Ticket,
+    title: string,
+    description: string,
+  ) {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
     if (hasSupabaseConfig) {
-      await createSharedSubticket(parent, cleanTitle, sessionId);
+      await createSharedSubticket(parent.id, cleanTitle, description);
       setTickets(await loadTickets());
     } else {
       const childNumber =
@@ -329,7 +357,9 @@ export function App() {
       const child: Ticket = {
         id: `${parent.id}-${childNumber}`,
         title: cleanTitle,
-        description: `Sub-ticket for ${parent.title}. Add the implementation details and completion notes here.`,
+        description:
+          description.trim() ||
+          `Sub-ticket for ${parent.title}. Add the implementation details and completion notes here.`,
         criteria: [],
         competition: parent.competition,
         subteam: parent.subteam,
@@ -507,41 +537,44 @@ export function App() {
           >
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <button
-            className="user-button"
-            onClick={() => setShowUsername(!showUsername)}
-          >
-            <UserRound size={16} /> {username}
-            <ChevronRight size={15} />
-          </button>
-        </div>
-        {showUsername && (
-          <form
-            className="identity-popover"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void updateUsername(draftUsername);
-            }}
-          >
-            <label htmlFor="change-name">Discord username</label>
-            <input
-              id="change-name"
-              value={draftUsername}
-              onChange={(e) => setDraftUsername(e.target.value)}
-              placeholder={username}
-            />
-            <button className="button primary" type="submit">
-              Update username
-            </button>
+          <div className="identity-anchor" ref={identityRef}>
             <button
-              className="text-button"
-              type="button"
-              onClick={() => void resetSession()}
+              className="user-button"
+              aria-expanded={showUsername}
+              onClick={() => setShowUsername(!showUsername)}
             >
-              Start new session
+              <UserRound size={16} /> {username}
+              <ChevronRight size={15} />
             </button>
-          </form>
-        )}
+            {showUsername && (
+              <form
+                className="identity-popover"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void updateUsername(draftUsername);
+                }}
+              >
+                <label htmlFor="change-name">Discord username</label>
+                <input
+                  id="change-name"
+                  value={draftUsername}
+                  onChange={(e) => setDraftUsername(e.target.value)}
+                  placeholder={username}
+                />
+                <button className="button primary" type="submit">
+                  Update username
+                </button>
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => void resetSession()}
+                >
+                  Start new session
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
       </header>
       <div className="layout">
         <aside className="sidebar">
@@ -638,10 +671,15 @@ export function App() {
               onBack={closeTicket}
               onClaim={() => claim(selected)}
               onRelease={() => release(selected)}
-              onCreateSubticket={(title) => createSubticket(selected, title)}
+              onOpenTicket={openTicket}
+              onCreateSubticket={(title, description) =>
+                createSubticket(selected, title, description)
+              }
+              onComment={(body, parentId) =>
+                addSharedComment(selected.id, body, parentId)
+              }
               isLead={Boolean(leadAccess)}
               onLeadStatus={(status) => void updateLeadStatus(selected, status)}
-              onUpdate={updateTicket}
             />
           ) : view === "mine" ? (
             <MyTasksView

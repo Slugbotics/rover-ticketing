@@ -8,6 +8,8 @@ export type Comment = {
   author: string
   body: string
   createdAt: string
+  // Set on replies; replies are one level deep.
+  parentId?: string
 }
 
 export type Activity = {

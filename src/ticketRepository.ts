@@ -68,13 +68,14 @@ export async function loadTickets(): Promise<Ticket[]> {
         author: names.get(comment.author_id) || "Member",
         body: comment.body,
         createdAt: comment.created_at,
+        parentId: comment.parent_comment_id || undefined,
       }),
     );
     const ticketActivity: Activity[] = (activityByTicket.get(row.id) || []).map(
       (item) => ({
         id: String(item.id),
         actor: names.get(item.actor_id) || "Member",
-        message: item.action,
+        message: describeActivity(item.action, item.details),
         createdAt: item.created_at,
       }),
     );
@@ -121,7 +122,11 @@ export async function leaveTicket(ticketId: string) {
   if (error) throw error;
   return data;
 }
-export async function addComment(ticketId: string, body: string) {
+export async function addComment(
+  ticketId: string,
+  body: string,
+  parentId?: string,
+) {
   const client = requireSupabase();
   const {
     data: { user },
@@ -131,26 +136,24 @@ export async function addComment(ticketId: string, body: string) {
     throw userError || new Error("Member session is unavailable.");
   const { error } = await client
     .from("ticket_comments")
-    .insert({ ticket_id: ticketId, author_id: user.id, body });
+    .insert({
+      ticket_id: ticketId,
+      author_id: user.id,
+      body,
+      ...(parentId ? { parent_comment_id: parentId } : {}),
+    });
   if (error) throw error;
 }
 export async function createSubticket(
-  parent: Ticket,
+  parentId: string,
   title: string,
-  creatorId: string,
+  description: string,
 ) {
-  const client = requireSupabase();
-  const childNumber =
-    (
-      await client
-        .from("tickets")
-        .select("id", { count: "exact", head: true })
-        .like("id", `${parent.id}-%`)
-    ).count || 0;
-  const { error } = await client.rpc("create_subticket", {
-    parent_id: parent.id,
-    child_id: `${parent.id}-${childNumber + 1}`,
+  // The server allocates the child ID and checks lead/participant access.
+  const { error } = await requireSupabase().rpc("create_subticket", {
+    parent_id: parentId,
     child_title: title.trim(),
+    child_description: description.trim() || null,
   });
   if (error) throw error;
 }
@@ -182,6 +185,23 @@ export async function leadUpdateStatus(
     feedback,
   });
   if (error) throw error;
+}
+
+const activityLabels: Record<string, string> = {
+  created: "created this ticket",
+  joined: "joined this ticket",
+  left: "left this ticket",
+  claimed: "claimed this ticket",
+  created_subticket: "created this sub-ticket",
+};
+
+function describeActivity(action: string, details: Record<string, unknown> | null) {
+  const to = typeof details?.to === "string" ? details.to : "";
+  if (action === "added_subticket" && typeof details?.child_id === "string")
+    return `added sub-ticket ${details.child_id}`;
+  if ((action === "status_changed" || action === "lead_status_changed") && to)
+    return `moved this ticket to ${to}`;
+  return activityLabels[action] || action.replaceAll("_", " ");
 }
 
 function groupBy<T extends Record<string, string>, K extends keyof T>(

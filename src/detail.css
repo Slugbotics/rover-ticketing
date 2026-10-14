@@ -1,0 +1,52 @@
+/* Sub-tickets, comment threads, and identity popover anchor. */
+.identity-anchor{display:flex}
+.parent-link{border:1px solid var(--line);background:var(--soft);color:var(--blue);display:inline-flex;align-items:center;gap:7px;padding:7px 11px;font-size:11px;margin:-12px 0 18px;max-width:100%}
+.parent-link b{font-family:'DM Mono',monospace;font-weight:500}
+.parent-link span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.parent-link:hover{border-color:var(--blue)}
+.child-ticket{width:100%;border:0;border-top:1px solid var(--line);background:transparent;color:inherit;text-align:left;cursor:pointer}
+.child-ticket:hover{background:var(--soft)}
+.child-ticket .row-chevron{margin:0;flex:0 0 auto}
+.child-people{display:inline-flex;align-items:center;gap:3px;color:var(--muted);font-size:10px}
+.small-note{font-size:12px;margin-bottom:4px}
+.subticket-form{flex-wrap:wrap}
+.subticket-form input{flex:1 1 100%}
+.subticket-form textarea{flex:1 1 100%;border:1px solid var(--line);padding:10px;font-size:11px;resize:vertical;color:var(--navy);background:#fff}
+.subticket-form .form-error{flex:1 1 100%;margin:0}
+.subticket-form .button{margin-left:auto}
+.content-section h2 svg{vertical-align:-2px;margin-right:4px}
+.comment-form .form-error{align-self:stretch;margin:0 0 8px}
+.comment-form-actions{display:flex;gap:14px;align-items:center}
+.comment-thread{border-top:1px solid var(--line);margin-top:18px;padding-top:15px}
+.comment-thread>.comment{border:0;margin:0;padding:0}
+.comment-replies{margin:10px 0 0 38px;border-left:2px solid var(--line);padding-left:14px}
+.comment-replies .comment{border:0;margin:0 0 12px;padding:0}
+.comment-replies .comment-form{margin-top:4px}
+.reply-button{display:inline-flex;align-items:center;gap:5px;font-size:11px}
+
+/* Dark mode: elements that only had light-mode colors. */
+html[data-theme='dark'] .detail-header h1,
+html[data-theme='dark'] .activity-item strong,
+html[data-theme='dark'] .child-ticket strong,
+html[data-theme='dark'] .section-heading h2{color:#edf5f7}
+html[data-theme='dark'] .detail-header{border-color:#29404f}
+html[data-theme='dark'] .activity-item p,
+html[data-theme='dark'] .criteria li{color:#b4c8d0}
+html[data-theme='dark'] .activity-line{background:#38515f}
+html[data-theme='dark'] .criteria li span{background:#1c3a2b;color:#8fd3a5}
+html[data-theme='dark'] .competition-tag{background:#17324a;color:#8cc3ea}
+html[data-theme='dark'] .status-tag.open{background:#173526;color:#8fd3a5}
+html[data-theme='dark'] .status-tag.in-progress{background:#17324a;color:#8cc3ea}
+html[data-theme='dark'] .status-tag.blocked{background:#43262a;color:#ffb0aa}
+html[data-theme='dark'] .status-tag.in-review{background:#3f3215;color:#f0cf75}
+html[data-theme='dark'] .status-tag.done{background:#23313a;color:#a9bbc4}
+html[data-theme='dark'] .priority.high{color:#ff9b93}
+html[data-theme='dark'] .priority.medium{color:#f0cf75}
+html[data-theme='dark'] .beginner{background:#1c3a2b;color:#8fd3a5}
+html[data-theme='dark'] .parent-link{background:#172d3c;border-color:#38515f;color:#8cc3ea}
+html[data-theme='dark'] .child-ticket:hover{background:#1a3342}
+html[data-theme='dark'] .subticket-form textarea{background:#172d3c;border-color:#38515f;color:#e5eef2}
+html[data-theme='dark'] .comment-thread,html[data-theme='dark'] .comment-replies{border-color:#29404f}
+html[data-theme='dark'] .text-button{color:#8cc3ea}
+html[data-theme='dark'] .avatar{background:#294653}
+html[data-theme='dark'] .detail-primary,html[data-theme='dark'] .content-section,html[data-theme='dark'] .status-banner{border-color:#29404f}

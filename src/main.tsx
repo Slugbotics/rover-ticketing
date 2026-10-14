@@ -7,6 +7,7 @@ import './theme.css'
 import './contrast-fixes.css'
 import './entry-contrast.css'
 import './lead.css'
+import './detail.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><App /></StrictMode>,
