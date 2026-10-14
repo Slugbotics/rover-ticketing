@@ -13,6 +13,8 @@ import {
   LayoutDashboard,
   Link as LinkIcon,
   LogIn,
+  LogOut,
+  Plus,
   MessageSquare,
   Moon,
   Search,
@@ -42,7 +44,14 @@ import {
   loadTickets,
 } from "./ticketRepository";
 import { LeadSignIn } from "./LeadSignIn";
-import { signInLead } from "./leadAuth";
+import {
+  loadLeadAccess,
+  loadLeadRoster,
+  signInLead,
+  signOutLead,
+  type LeadAccess,
+  type LeadRosterEntry,
+} from "./leadAuth";
 import { LeadTicketForm, type TicketDraft } from "./LeadTicketForm";
 import { createTicket as createSharedTicket, leadUpdateStatus } from "./ticketRepository";
 
@@ -95,11 +104,9 @@ export function App() {
   const [authError, setAuthError] = useState("");
   const [dataReady, setDataReady] = useState(!hasSupabaseConfig);
   const [showLeadSignIn, setShowLeadSignIn] = useState(false);
-  const [leadAccess, setLeadAccess] = useState<{
-    role: "subteam_lead" | "administrator";
-    scopes: string[];
-  } | null>(null);
+  const [leadAccess, setLeadAccess] = useState<LeadAccess | null>(null);
   const [showTicketForm, setShowTicketForm] = useState(false);
+  const isAdmin = leadAccess?.role === "administrator";
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? "dark" : "light";
@@ -109,7 +116,17 @@ export function App() {
   useEffect(() => {
     if (!hasSupabaseConfig) return;
     ensureMemberIdentity()
-      .then((identity) => {
+      .then(async (identity) => {
+        // A persisted password session is a lead account; restore its access
+        // instead of silently treating it as an anonymous member.
+        if (!identity.user.is_anonymous) {
+          const access = await loadLeadAccess(identity.user.id);
+          if (access) setLeadAccess(access);
+          else {
+            await endMemberIdentity();
+            identity = await ensureMemberIdentity();
+          }
+        }
         setSessionId(identity.user.id);
         if (identity.username) setUsername(identity.username);
         setAuthReady(true);
@@ -157,6 +174,7 @@ export function App() {
         const identity = await ensureMemberIdentity();
         await saveMemberUsername(identity.user.id, clean);
         setSessionId(identity.user.id);
+        setTickets(await loadTickets());
       } catch (error) {
         setAuthError(
           error instanceof Error
@@ -369,10 +387,30 @@ export function App() {
 
   async function handleLeadSignIn(email: string, password: string) {
     const result = await signInLead(email, password);
+    // The lead account replaces the anonymous member session, so adopt its
+    // identity and give it a display name if it has none yet.
+    const identity = await ensureMemberIdentity();
+    if (identity.username) setUsername(identity.username);
+    else if (username) await saveMemberUsername(result.userId, username);
+    setSessionId(result.userId);
     setLeadAccess(result.access);
     setShowLeadSignIn(false);
     setView("lead");
     setAuthError("");
+  }
+
+  async function handleLeadSignOut() {
+    try {
+      await signOutLead();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to sign out.");
+      return;
+    }
+    setLeadAccess(null);
+    setView("board");
+    closeTicket();
+    setUsername("");
+    setDraftUsername("");
   }
 
   async function createLeadTicket(draft: TicketDraft) {
@@ -453,10 +491,10 @@ export function App() {
           )}
           {leadAccess && (
             <button
-              className="button primary top-create"
+              className="button top-create"
               onClick={() => setShowTicketForm(true)}
             >
-              New ticket
+              <Plus size={15} /> New ticket
             </button>
           )}
           <button
@@ -535,34 +573,44 @@ export function App() {
                 ).length
               }
             />
-            <NavButton
-              icon={<Flag size={17} />}
-              label="Lead overview"
-              active={view === "lead"}
-              onClick={() => {
-                setView("lead");
-                closeTicket();
-              }}
-            />
-            <NavButton
-              icon={<Settings size={17} />}
-              label="Administration"
-              active={view === "admin"}
-              onClick={() => {
-                setView("admin");
-                closeTicket();
-              }}
-            />
+            {leadAccess && (
+              <NavButton
+                icon={<Flag size={17} />}
+                label="Lead overview"
+                active={view === "lead"}
+                onClick={() => {
+                  setView("lead");
+                  closeTicket();
+                }}
+              />
+            )}
+            {isAdmin && (
+              <NavButton
+                icon={<Settings size={17} />}
+                label="Administration"
+                active={view === "admin"}
+                onClick={() => {
+                  setView("admin");
+                  closeTicket();
+                }}
+              />
+            )}
           </nav>
           <div className="sidebar-foot">
             <div className="online-dot" /> <span>Shared board online</span>
             {leadAccess ? (
-              <span className="lead-session">
-                <ShieldCheck size={14} />{" "}
-                {leadAccess.role === "administrator"
-                  ? "Administrator"
-                  : "Lead session"}
-              </span>
+              <>
+                <span className="lead-session">
+                  <ShieldCheck size={14} />{" "}
+                  {isAdmin ? "Administrator" : "Lead session"}
+                </span>
+                <button
+                  className="lead-link"
+                  onClick={() => void handleLeadSignOut()}
+                >
+                  <LogOut size={14} /> Sign out of lead account
+                </button>
+              </>
             ) : (
               <button
                 className="lead-link"
@@ -574,9 +622,12 @@ export function App() {
           </div>
         </aside>
         <main className="main-content">
-          {view === "lead" ? (
-            <LeadOverviewBase tickets={tickets} />
-          ) : view === "admin" ? (
+          {view === "lead" && leadAccess ? (
+            <LeadOverviewBase
+              tickets={tickets}
+              onCreateTicket={() => setShowTicketForm(true)}
+            />
+          ) : view === "admin" && isAdmin ? (
             <AdminView />
           ) : selected ? (
             <SessionTicketDetail
@@ -1340,7 +1391,13 @@ function Meta({
   );
 }
 
-function LeadOverviewBase({ tickets }: { tickets: Ticket[] }) {
+function LeadOverviewBase({
+  tickets,
+  onCreateTicket,
+}: {
+  tickets: Ticket[];
+  onCreateTicket: () => void;
+}) {
   const [showDateRange, setShowDateRange] = useState(false);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
@@ -1379,9 +1436,14 @@ function LeadOverviewBase({ tickets }: { tickets: Ticket[] }) {
           <h1>Lead overview</h1>
           <p className="muted">A quick read for the next online meeting.</p>
         </div>
-        <button className="button outline" onClick={() => setShowDateRange((current) => !current)}>
-          <CalendarDays size={16} /> Date range
-        </button>
+        <div className="heading-actions">
+          <button className="button outline" onClick={() => setShowDateRange((current) => !current)}>
+            <CalendarDays size={16} /> Date range
+          </button>
+          <button className="button primary" onClick={onCreateTicket}>
+            <Plus size={16} /> New ticket
+          </button>
+        </div>
       </div>
       {showDateRange && <div className="date-range-panel"><label>From<input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} /></label><label>To<input type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} /></label><button className="text-button" onClick={() => { setRangeStart(""); setRangeEnd(""); }}>Clear</button></div>}
       <div className="overview-grid">
@@ -1437,6 +1499,13 @@ function LeadOverviewBase({ tickets }: { tickets: Ticket[] }) {
   );
 }
 function AdminView() {
+  const [roster, setRoster] = useState<LeadRosterEntry[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    loadLeadRoster()
+      .then(setRoster)
+      .catch((reason: Error) => setError(reason.message));
+  }, []);
   return (
     <>
       <div className="page-heading">
@@ -1444,12 +1513,9 @@ function AdminView() {
           <p className="eyebrow">ADMINISTRATION / ACCESS</p>
           <h1>Lead access</h1>
           <p className="muted">
-            Manage explicit lead authorization and subteam scopes.
+            Lead authorization and subteam scopes from Supabase.
           </p>
         </div>
-        <button className="button primary">
-          <Users size={16} /> Invite lead
-        </button>
       </div>
       <div className="admin-warning">
         <ShieldCheck size={22} />
@@ -1458,32 +1524,45 @@ function AdminView() {
           <p>
             Discord usernames are display identities only. Lead permissions come
             from explicitly authorized Supabase accounts and are enforced by
-            database policies.
+            database policies. To add a lead, create the account under Supabase
+            Authentication &gt; Users, then insert its UID into{" "}
+            <code>public.leads</code> (and <code>public.lead_scopes</code> for
+            subteam leads) in the SQL editor.
           </p>
         </div>
       </div>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="lead-table">
         <div className="table-head">
           <span>Lead account</span>
           <span>Role</span>
           <span>Scopes</span>
-          <span>Access</span>
+          <span>Added</span>
         </div>
-        {[
-          ["Maya Chen", "Administrator", "All subteams", "Active"],
-          ["Jon Bell", "Subteam lead", "Software · Electrical", "Active"],
-          ["Priya Rao", "Subteam lead", "Science · Mechanical", "Active"],
-        ].map((lead) => (
-          <div className="table-row" key={lead[0]}>
+        {roster === null && !error && (
+          <div className="table-row">
+            <span>Loading lead accounts...</span>
+          </div>
+        )}
+        {roster?.map((lead) => (
+          <div className="table-row" key={lead.userId}>
             <span>
-              <b>{lead[0]}</b>
-              <small>Authorized account</small>
+              <b>{lead.displayName || "Lead account"}</b>
+              <small>{lead.userId}</small>
             </span>
-            <span>{lead[1]}</span>
-            <span>{lead[2]}</span>
-            <span className="active-access">
-              <Check size={14} /> {lead[3]}
+            <span>
+              {lead.role === "administrator" ? "Administrator" : "Subteam lead"}
             </span>
+            <span>
+              {lead.role === "administrator"
+                ? "All subteams"
+                : lead.scopes.join(" · ") || "No scopes"}
+            </span>
+            <span>{formatDate(lead.createdAt)}</span>
           </div>
         ))}
       </div>
