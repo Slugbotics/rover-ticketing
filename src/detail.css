@@ -95,3 +95,17 @@ html[data-theme='dark'] .scope-picker .check-control{color:#b4c8d0}
 html[data-theme='dark'] .text-button.danger{color:#ff9b93}
 html[data-theme='dark'] .success-note{color:#8fd3a5}
 .pending-row{background:var(--soft)}.pending-row b{font-style:italic}html[data-theme='dark'] .pending-row{background:#172a38}
+
+/* Identity menu: lead sign-in lives here so it is reachable at every width. */
+.identity-role{display:flex;align-items:center;gap:5px;margin-top:6px;color:#3f8656;font-size:11px}
+.identity-lead{margin-bottom:8px}
+.user-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-theme='dark'] .identity-role{color:#8fd3a5}
+html[data-theme='dark'] .identity-lead{background:#172d3c;border-color:#38515f;color:#e5eef2}
+@media(max-width:620px){
+  .top-actions{gap:10px}
+  .top-create span{display:none}
+  .top-create{padding:8px}
+  .user-name{max-width:90px}
+  .identity-popover{right:12px;left:auto;max-width:calc(100vw - 24px)}
+}

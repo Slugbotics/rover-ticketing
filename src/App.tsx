@@ -548,7 +548,7 @@ export function App() {
               className="button top-create"
               onClick={() => setShowTicketForm(true)}
             >
-              <Plus size={15} /> New ticket
+              <Plus size={15} /> <span>New ticket</span>
             </button>
           )}
           <button
@@ -567,14 +567,32 @@ export function App() {
               aria-expanded={showUsername}
               onClick={() => setShowUsername(!showUsername)}
             >
-              <UserRound size={16} /> {username}
+              <UserRound size={16} /> <span className="user-name">{username}</span>
               <ChevronRight size={15} />
             </button>
             {showUsername && (
               <div className="identity-popover">
                 <p className="identity-name">
                   Signed in as <strong>{username}</strong>
+                  {leadAccess && (
+                    <span className="identity-role">
+                      <ShieldCheck size={13} />{" "}
+                      {isAdmin ? "Administrator" : "Lead session"}
+                    </span>
+                  )}
                 </p>
+                {!leadAccess && (
+                  <button
+                    className="button outline full identity-lead"
+                    type="button"
+                    onClick={() => {
+                      setShowUsername(false);
+                      setShowLeadSignIn(true);
+                    }}
+                  >
+                    <LogIn size={15} /> Lead sign-in
+                  </button>
+                )}
                 <button
                   className="button primary full"
                   type="button"
