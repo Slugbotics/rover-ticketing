@@ -46,14 +46,16 @@ Anonymous members never inherit lead permissions. Browser-scoped ownership does 
 
 ## GitHub Pages
 
-The production build uses `/rover-ticketing/` as its Vite base path. Configure Pages to deploy the `dist` artifact from GitHub Actions. Add repository Actions variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` before authorizing a deployment. Ticket details use query-string URLs such as `/rover-ticketing/?ticket=RB-104`, which work on direct refreshes on Pages without server routing.
+The production build uses `/rover-ticketing/` as its Vite base path. Configure Pages to deploy the `dist` artifact from GitHub Actions. Add repository Actions variables (Settings > Secrets and variables > Actions > Variables) `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; the deploy job fails rather than publishing a demo build if either is missing. Set Settings > Pages > Build and deployment > Source to **GitHub Actions**. The site is served at `https://slugbotics.github.io/rover-ticketing/`. Ticket details use query-string URLs such as `/rover-ticketing/?ticket=RB-104`, which work on direct refreshes on Pages without server routing.
 
 ## Scope and limitations
 
-No file uploads are implemented. With Supabase configured and migrations applied, ticket reads and participant join/leave operations use shared database state. Comments and sub-ticket creation still need to be moved into the production mutation adapter before those actions are treated as shared. The UI reports auth/data errors rather than silently switching to demo identity. See [PROJECT_SPEC.md](PROJECT_SPEC.md), [AGENTS.md](AGENTS.md), and [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md).
+No file uploads are implemented. With Supabase configured and migrations applied, ticket reads, participant join/leave, comments, lead ticket creation, sub-ticket creation, and lead review status changes all use shared database state. The UI reports auth/data errors rather than silently switching to demo identity or demo data. See [PROJECT_SPEC.md](PROJECT_SPEC.md), [AGENTS.md](AGENTS.md), and [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md).
 
 Tickets support multiple independent participants and parent-linked sub-tickets. Apply `202610120002_multi_participant_subtickets.sql` after the base migration when enabling those shared database workflows.
 
 Apply `202610120004_create_subticket_rpc.sql` as well. Sub-ticket creation is intentionally lead-scoped because it changes ticket requirements; anonymous members can join existing work but cannot create requirements.
 
 Apply `202610120005_lead_ticket_workflows.sql` to enable the lead sign-in ticket creation and lead review status functions used by the app.
+
+Apply `202610140006_fix_workflow_rpc_privileges.sql` last. It runs the workflow functions as `security definer` with explicit membership/lead-scope checks; without it, joining tickets, creating tickets, and status changes fail under RLS because `ticket_activity` intentionally has no client INSERT policy.

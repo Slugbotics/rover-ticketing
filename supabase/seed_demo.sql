@@ -1,6 +1,6 @@
 -- Optional sample data for the shared board.
 -- Replace AUTH_USER_UUID with the Auth user UUID of an administrator or authorized lead.
--- Run this only once after applying migrations 001 through 004.
+-- Run this only once after applying migrations 001 through 006.
 
 insert into public.tickets (
   id, title, description, completion_criteria, competition, primary_subteam,

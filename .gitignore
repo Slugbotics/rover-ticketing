@@ -6,6 +6,7 @@
 # Build output
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -20,6 +21,7 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+*.tsbuildinfo
 downloads/
 eggs/
 .eggs/

@@ -76,7 +76,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     new URLSearchParams(location.search).get("ticket"),
   );
-  const [tickets, setTickets] = useState(demoTickets);
+  const [tickets, setTickets] = useState<Ticket[]>(() =>
+    hasSupabaseConfig ? [] : demoTickets,
+  );
   const [competition, setCompetition] = useState<Competition | "All">("All");
   const [search, setSearch] = useState("");
   const [subteam, setSubteam] = useState<Subteam | "All">("All");

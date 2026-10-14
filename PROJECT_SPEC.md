@@ -22,4 +22,4 @@ Tickets have one competition tag (`URC`, `Lunabotics`, or `Both`), a primary sub
 Vite emits `/rover-ticketing/` for production builds. The app uses query-string ticket links (`?ticket=RB-104`) so GitHub Pages does not need a server-side fallback route.
 
 ## Current implementation boundary
-Supabase anonymous authentication and `member_profiles` are wired for member identity. Configured environments load tickets from Supabase and persist participant join/leave operations. Comments and sub-ticket creation remain local until their production mutation adapter is completed. It must report configuration/auth/data errors rather than switching to demo identity. A display username is never treated as proof of identity.
+Supabase anonymous authentication and `member_profiles` are wired for member identity. Configured environments load tickets from Supabase and persist participant join/leave, comments, sub-tickets, lead ticket creation, and lead review status changes. It must report configuration/auth/data errors rather than switching to demo identity. A display username is never treated as proof of identity.
