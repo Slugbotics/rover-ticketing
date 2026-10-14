@@ -174,6 +174,18 @@ export async function createTicket(draft: TicketDraft) {
   });
   if (error) throw error;
 }
+export async function memberUpdateStatus(
+  ticketId: string,
+  nextStatus: string,
+  reason?: string,
+) {
+  const { error } = await requireSupabase().rpc("member_update_status", {
+    ticket_id: ticketId,
+    next_status: nextStatus,
+    reason: reason || null,
+  });
+  if (error) throw error;
+}
 export async function leadUpdateStatus(
   ticketId: string,
   nextStatus: string,
@@ -199,6 +211,14 @@ function describeActivity(action: string, details: Record<string, unknown> | nul
   const to = typeof details?.to === "string" ? details.to : "";
   if (action === "added_subticket" && typeof details?.child_id === "string")
     return `added sub-ticket ${details.child_id}`;
+  if (action === "lead_status_changed" && to === "Done")
+    return "marked this ticket complete";
+  if (action === "lead_status_changed" && details?.from === "In Review" && to === "In Progress")
+    return "sent this ticket back for more work";
+  if (action === "status_changed" && to === "In Review")
+    return "submitted this ticket for review";
+  if (action === "status_changed" && details?.from === "In Review")
+    return "withdrew this ticket from review";
   if ((action === "status_changed" || action === "lead_status_changed") && to)
     return `moved this ticket to ${to}`;
   return activityLabels[action] || action.replaceAll("_", " ");

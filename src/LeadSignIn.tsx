@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, LockKeyhole, X } from "lucide-react";
+import { errorMessage } from "./errors";
 
 export function LeadSignIn({
   onClose,
@@ -20,7 +21,7 @@ export function LeadSignIn({
       await onSubmit(email.trim(), password);
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Lead sign-in failed.",
+        errorMessage(reason, "Lead sign-in failed."),
       );
     } finally {
       setBusy(false);

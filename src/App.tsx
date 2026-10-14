@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity as ActivityIcon,
+  Archive,
   ArrowLeft,
   CalendarDays,
   Check,
   ChevronRight,
+  ClipboardCheck,
   CircleAlert,
   Clock3,
   Filter,
@@ -29,7 +31,16 @@ import {
 import { demoTickets } from "./demoData";
 import type { Competition, Priority, Status, Subteam, Ticket } from "./types";
 import { hasSupabaseConfig } from "./supabase";
-import { filterTickets, participantsFor, statuses, subteams } from "./domain";
+import {
+  archivedTickets,
+  boardTickets,
+  filterTickets,
+  leadCanReview,
+  participantsFor,
+  reviewQueue,
+  statuses,
+  subteams,
+} from "./domain";
 import { TicketDetail as SessionTicketDetail } from "./TicketDetail";
 import {
   endMemberIdentity,
@@ -53,9 +64,14 @@ import {
   type LeadRosterEntry,
 } from "./leadAuth";
 import { LeadTicketForm, type TicketDraft } from "./LeadTicketForm";
-import { createTicket as createSharedTicket, leadUpdateStatus } from "./ticketRepository";
+import {
+  createTicket as createSharedTicket,
+  leadUpdateStatus,
+  memberUpdateStatus,
+} from "./ticketRepository";
+import { errorMessage } from "./errors";
 
-type View = "board" | "mine" | "lead" | "admin";
+type View = "board" | "mine" | "review" | "archive" | "lead" | "admin";
 
 function formatDate(date?: string) {
   return date
@@ -161,7 +177,7 @@ export function App() {
 
   const filtered = useMemo(
     () =>
-      filterTickets(tickets, {
+      filterTickets(boardTickets(tickets), {
         competition,
         search,
         subteam,
@@ -182,6 +198,8 @@ export function App() {
     ],
   );
   const selected = tickets.find((ticket) => ticket.id === selectedId);
+  const queue = useMemo(() => reviewQueue(tickets, leadAccess), [tickets, leadAccess]);
+  const archive = useMemo(() => archivedTickets(tickets), [tickets]);
 
   async function enterBoard(event: React.FormEvent) {
     event.preventDefault();
@@ -195,9 +213,7 @@ export function App() {
         setTickets(await loadTickets());
       } catch (error) {
         setAuthError(
-          error instanceof Error
-            ? error.message
-            : "Unable to save member profile.",
+          errorMessage(error, "Unable to save member profile."),
         );
         return;
       }
@@ -225,7 +241,7 @@ export function App() {
         setTickets(await loadTickets());
       } catch (error) {
         setAuthError(
-          error instanceof Error ? error.message : "Unable to save comment.",
+          errorMessage(error, "Unable to save comment."),
         );
       }
       return;
@@ -263,7 +279,7 @@ export function App() {
           setTickets(await loadTickets());
         } catch (error) {
           setAuthError(
-            error instanceof Error ? error.message : "Unable to join ticket.",
+            errorMessage(error, "Unable to join ticket."),
           );
         }
       } else {
@@ -292,7 +308,7 @@ export function App() {
           setTickets(await loadTickets());
         } catch (error) {
           setAuthError(
-            error instanceof Error ? error.message : "Unable to leave ticket.",
+            errorMessage(error, "Unable to leave ticket."),
           );
         }
       } else {
@@ -392,9 +408,7 @@ export function App() {
         await endMemberIdentity();
       } catch (error) {
         setAuthError(
-          error instanceof Error
-            ? error.message
-            : "Unable to end member session.",
+          errorMessage(error, "Unable to end member session."),
         );
         return;
       }
@@ -433,7 +447,7 @@ export function App() {
     try {
       await signOutLead();
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to sign out.");
+      setAuthError(errorMessage(error, "Unable to sign out."));
       return;
     }
     setLeadAccess(null);
@@ -451,9 +465,23 @@ export function App() {
     setTickets(await loadTickets());
     setShowTicketForm(false);
   }
-  async function updateLeadStatus(ticket: Ticket, status: string) {
-    if (!leadAccess || !hasSupabaseConfig) return;
-    try { await leadUpdateStatus(ticket.id, status); setTickets(await loadTickets()); } catch (error) { setAuthError(error instanceof Error ? error.message : "Unable to update ticket status."); }
+  // Callers show errors inline, so these throw instead of replacing the page.
+  async function updateLeadStatus(ticket: Ticket, status: Status) {
+    if (!leadAccess) throw new Error("Lead authorization is required.");
+    if (!hasSupabaseConfig) {
+      updateTicket(ticket.id, { status }, `moved this ticket to ${status}`);
+      return;
+    }
+    await leadUpdateStatus(ticket.id, status);
+    setTickets(await loadTickets());
+  }
+  async function updateMemberStatus(ticket: Ticket, status: Status) {
+    if (!hasSupabaseConfig) {
+      updateTicket(ticket.id, { status }, `moved this ticket to ${status}`);
+      return;
+    }
+    await memberUpdateStatus(ticket.id, status);
+    setTickets(await loadTickets());
   }
 
   if (!authReady)
@@ -606,6 +634,27 @@ export function App() {
                 ).length
               }
             />
+            <NavButton
+              icon={<Archive size={17} />}
+              label="Archive"
+              active={view === "archive"}
+              onClick={() => {
+                setView("archive");
+                closeTicket();
+              }}
+            />
+            {leadAccess && (
+              <NavButton
+                icon={<ClipboardCheck size={17} />}
+                label="Review queue"
+                active={view === "review"}
+                onClick={() => {
+                  setView("review");
+                  closeTicket();
+                }}
+                count={queue.length}
+              />
+            )}
             {leadAccess && (
               <NavButton
                 icon={<Flag size={17} />}
@@ -655,14 +704,7 @@ export function App() {
           </div>
         </aside>
         <main className="main-content">
-          {view === "lead" && leadAccess ? (
-            <LeadOverviewBase
-              tickets={tickets}
-              onCreateTicket={() => setShowTicketForm(true)}
-            />
-          ) : view === "admin" && isAdmin ? (
-            <AdminView />
-          ) : selected ? (
+          {selected ? (
             <SessionTicketDetail
               ticket={selected}
               allTickets={tickets}
@@ -678,8 +720,28 @@ export function App() {
               onComment={(body, parentId) =>
                 addSharedComment(selected.id, body, parentId)
               }
-              isLead={Boolean(leadAccess)}
-              onLeadStatus={(status) => void updateLeadStatus(selected, status)}
+              leadInScope={leadCanReview(leadAccess, selected)}
+              onLeadStatus={(status) => updateLeadStatus(selected, status)}
+              onMemberStatus={(status) => updateMemberStatus(selected, status)}
+            />
+          ) : view === "lead" && leadAccess ? (
+            <LeadOverviewBase
+              tickets={tickets}
+              onCreateTicket={() => setShowTicketForm(true)}
+            />
+          ) : view === "admin" && isAdmin ? (
+            <AdminView />
+          ) : view === "review" && leadAccess ? (
+            <ReviewQueueView
+              tickets={queue}
+              openTicket={openTicket}
+              onDecision={(ticket, status) => updateLeadStatus(ticket, status)}
+            />
+          ) : view === "archive" ? (
+            <ArchiveView
+              tickets={archive}
+              openTicket={openTicket}
+              username={username}
             />
           ) : view === "mine" ? (
             <MyTasksView
@@ -694,7 +756,7 @@ export function App() {
           ) : (
             <BoardView
               tickets={filtered}
-              allTickets={tickets}
+              allTickets={boardTickets(tickets)}
               competition={competition}
               setCompetition={setCompetition}
               search={search}
@@ -954,7 +1016,7 @@ function BoardView(props: {
           <Select
             label="Status"
             value={status}
-            options={["All", ...statuses]}
+            options={["All", ...statuses.filter((item) => item !== "Done")]}
             onChange={(value) => setStatus(value as Status | "All")}
           />
           <Select
@@ -1039,6 +1101,9 @@ function TicketRow({
         <div className="ticket-title-line">
           <span className="ticket-id">{ticket.id}</span>
           <h3>{ticket.title}</h3>
+          {ticket.parentTicketId && (
+            <span className="plain-tag">Sub-ticket of {ticket.parentTicketId}</span>
+          )}
           {ticket.beginnerFriendly && (
             <span className="beginner">Beginner-friendly</span>
           )}
@@ -1603,6 +1668,146 @@ function AdminView() {
             <span>{formatDate(lead.createdAt)}</span>
           </div>
         ))}
+      </div>
+    </>
+  );
+}
+
+function ReviewQueueView({
+  tickets,
+  openTicket,
+  onDecision,
+}: {
+  tickets: Ticket[];
+  openTicket: (id: string) => void;
+  onDecision: (ticket: Ticket, status: Status) => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  async function decide(ticket: Ticket, status: Status) {
+    setBusyId(ticket.id);
+    setError("");
+    try {
+      await onDecision(ticket, status);
+    } catch (reason) {
+      setError(`${ticket.id}: ${errorMessage(reason, "Unable to update ticket.")}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">LEAD VIEW / REVIEW</p>
+          <h1>Review queue</h1>
+          <p className="muted">
+            Work submitted for review in your subteams, oldest first. Completed
+            tickets move to the archive.
+          </p>
+        </div>
+        <div className="heading-meta">
+          <span>
+            <strong>{tickets.length}</strong> awaiting review
+          </span>
+        </div>
+      </div>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="ticket-list">
+        {tickets.map((ticket) => {
+          const people = participantsFor(ticket);
+          return (
+            <div className="review-row" key={ticket.id}>
+              <button className="review-main" onClick={() => openTicket(ticket.id)}>
+                <span className="ticket-id">
+                  {ticket.id}
+                  {ticket.parentTicketId && <> · sub-ticket of {ticket.parentTicketId}</>}
+                </span>
+                <strong>{ticket.title}</strong>
+                <span className="review-meta">
+                  {ticket.subteam} ·{" "}
+                  {people.length
+                    ? people.map((person) => person.username).join(", ")
+                    : "No participants"}{" "}
+                  · submitted {formatDate(ticket.updatedAt)}
+                </span>
+              </button>
+              <div className="review-actions">
+                <button
+                  className="button outline"
+                  disabled={busyId === ticket.id}
+                  onClick={() => void decide(ticket, "In Progress")}
+                >
+                  Send back
+                </button>
+                <button
+                  className="button primary"
+                  disabled={busyId === ticket.id}
+                  onClick={() => void decide(ticket, "Done")}
+                >
+                  <Check size={15} /> Mark complete
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {tickets.length === 0 && (
+          <div className="empty-state">
+            <ClipboardCheck size={28} />
+            <h3>Nothing waiting for review.</h3>
+            <p>Tickets appear here when members submit them for review.</p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ArchiveView({
+  tickets,
+  openTicket,
+  username,
+}: {
+  tickets: Ticket[];
+  openTicket: (id: string) => void;
+  username: string;
+}) {
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">WORKSPACE / COMPLETED</p>
+          <h1>Ticket archive</h1>
+          <p className="muted">
+            Tickets and sub-tickets a lead has marked complete.
+          </p>
+        </div>
+        <div className="heading-meta">
+          <span>
+            <strong>{tickets.length}</strong> completed
+          </span>
+        </div>
+      </div>
+      <div className="ticket-list">
+        {tickets.map((ticket) => (
+          <TicketRow
+            key={ticket.id}
+            ticket={ticket}
+            openTicket={openTicket}
+            username={username}
+          />
+        ))}
+        {tickets.length === 0 && (
+          <div className="empty-state">
+            <Archive size={28} />
+            <h3>No completed tickets yet.</h3>
+            <p>Work a lead marks complete will be listed here.</p>
+          </div>
+        )}
       </div>
     </>
   );

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Competition, Priority, Subteam } from "./types";
+import { errorMessage } from "./errors";
 
 export type TicketDraft = {
   title: string;
@@ -49,7 +50,7 @@ export function LeadTicketForm({
       await onSubmit(draft);
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Unable to create ticket.",
+        errorMessage(reason, "Unable to create ticket."),
       );
     } finally {
       setBusy(false);
