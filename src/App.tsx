@@ -788,6 +788,7 @@ export function App() {
                 ),
               )}
               openTicket={openTicket}
+              openArchive={() => setView("archive")}
               username={username}
             />
           ) : (
@@ -1186,15 +1187,20 @@ function TicketRow({
   );
 }
 
+// Completed tickets leave this list and live only in the archive.
 function MyTasksView({
-  tickets,
+  tickets: allMine,
   openTicket,
+  openArchive,
   username,
 }: {
   tickets: Ticket[];
   openTicket: (id: string) => void;
+  openArchive: () => void;
   username: string;
 }) {
+  const tickets = allMine.filter((ticket) => ticket.status !== "Done");
+  const completedCount = allMine.length - tickets.length;
   return (
     <>
       <div className="page-heading">
@@ -1207,21 +1213,20 @@ function MyTasksView({
         </div>
         <div className="heading-meta">
           <span>
-            <strong>
-              {tickets.filter((ticket) => ticket.status !== "Done").length}
-            </strong>{" "}
-            active
+            <strong>{tickets.length}</strong> active
           </span>
-          <span>
-            <strong>
-              {tickets.filter((ticket) => ticket.status === "Done").length}
-            </strong>{" "}
-            completed
-          </span>
+          <button
+            className="heading-meta-link"
+            type="button"
+            onClick={openArchive}
+            title="Completed tickets are in the archive"
+          >
+            <strong>{completedCount}</strong> completed
+          </button>
         </div>
       </div>
       <div className="results-line">
-        <span>{tickets.length} tickets signed up for</span>
+        <span>{tickets.length} active tickets</span>
         <span className="assignee">
           <UserRound size={14} /> {username}
         </span>
@@ -1238,10 +1243,11 @@ function MyTasksView({
         {tickets.length === 0 && (
           <div className="empty-state">
             <Check size={28} />
-            <h3>No tickets signed up for yet.</h3>
+            <h3>No active tickets.</h3>
             <p>
-              Open a ticket from the board and choose Claim ticket to add it
-              here.
+              {completedCount > 0
+                ? "Your completed work is in the archive. Join a ticket from the board to pick up something new."
+                : "Open a ticket from the board and join it to add it here."}
             </p>
           </div>
         )}

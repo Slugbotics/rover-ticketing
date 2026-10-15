@@ -110,3 +110,5 @@ html[data-theme='dark'] .identity-lead{background:#172d3c;border-color:#38515f;c
   .identity-popover{right:12px;left:auto;max-width:calc(100vw - 24px)}
 }
 .detail-header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.heading-meta-link{border:0;background:none;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.heading-meta-link:hover,.heading-meta-link:focus-visible{text-decoration:underline}
