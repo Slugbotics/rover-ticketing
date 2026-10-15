@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Ticket } from "./types";
-import { calendarDays, isOverdue, ticketsByDueDate, toDateKey } from "./domain";
+import {
+  calendarDays,
+  isOverdue,
+  teamTodayKey,
+  ticketsByDueDate,
+  toDateKey,
+} from "./domain";
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Days show this many tickets before collapsing the rest behind "+N more".
@@ -14,11 +20,12 @@ export function CalendarView({
   tickets: Ticket[];
   openTicket: (id: string) => void;
 }) {
-  const today = new Date();
-  const todayKey = toDateKey(today);
+  // "Today" follows Pacific time so the highlight matches the team's day.
+  const todayKey = teamTodayKey();
+  const [todayYear, todayMonth] = todayKey.split("-").map(Number);
+  const today = { year: todayYear, month: todayMonth - 1 };
   const [month, setMonth] = useState({
-    year: today.getFullYear(),
-    month: today.getMonth(),
+    ...today,
   });
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const byDay = useMemo(() => ticketsByDueDate(tickets), [tickets]);
@@ -89,7 +96,7 @@ export function CalendarView({
           className="button outline"
           onClick={() => {
             setExpandedDay(null);
-            setMonth({ year: today.getFullYear(), month: today.getMonth() });
+            setMonth(today);
           }}
         >
           Today

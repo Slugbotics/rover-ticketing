@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Archive, ArrowLeft, CalendarDays, Check, ChevronRight, ClipboardCheck, Clock3, CornerDownRight, Link as LinkIcon, MessageSquare, Pencil, UserRound, Activity as ActivityIcon, Users } from 'lucide-react'
 import type { Comment, Status, Ticket } from './types'
-import { canMemberTransition, participantsFor } from './domain'
+import { canMemberTransition, formatDate, participantsFor } from './domain'
 import { errorMessage } from './errors'
 
-function formatDate(date?: string) { return date ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(date)) : 'No due date' }
 
 type Props = {
   ticket: Ticket

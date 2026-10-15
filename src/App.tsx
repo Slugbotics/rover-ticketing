@@ -41,6 +41,7 @@ import {
   statuses,
   subteams,
   quickSubteams,
+  formatDate,
 } from "./domain";
 import { TicketDetail as SessionTicketDetail } from "./TicketDetail";
 import {
@@ -89,14 +90,6 @@ type View =
   | "lead"
   | "admin";
 
-function formatDate(date?: string) {
-  return date
-    ? new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-      }).format(new Date(date))
-    : "No due date";
-}
 
 export function App() {
   const demoMode =

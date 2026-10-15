@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { demoTickets } from './demoData'
-import { archivedTickets, boardTickets, calendarDays, canMemberTransition, filterTickets, isOverdue, ticketsByDueDate, toDateKey, leadCanReview, participantsFor, reviewQueue } from './domain'
+import { archivedTickets, boardTickets, calendarDays, canMemberTransition, filterTickets, formatDate, teamTodayKey, isOverdue, ticketsByDueDate, toDateKey, leadCanReview, participantsFor, reviewQueue } from './domain'
 
 describe('ticket board rules', () => {
   it('matches a ticket under every subteam it involves', () => {
@@ -76,5 +76,13 @@ describe('ticket board rules', () => {
     expect(isOverdue(ticket, '2026-10-14')).toBe(true)
     expect(isOverdue(ticket, '2026-10-10')).toBe(false)
     expect(isOverdue({ ...ticket, status: 'Done' as const }, '2026-10-14')).toBe(false)
+  })
+
+  it('shows due dates as their calendar day and timestamps in Pacific time', () => {
+    expect(formatDate('2026-10-30')).toBe('Oct 30')
+    expect(formatDate('2026-10-15T05:00:00Z')).toBe('Oct 14') // 10pm PDT
+    expect(formatDate(undefined)).toBe('No due date')
+    expect(teamTodayKey(new Date('2026-10-15T05:00:00Z'))).toBe('2026-10-14')
+    expect(teamTodayKey(new Date('2026-10-15T08:00:00Z'))).toBe('2026-10-15')
   })
 })

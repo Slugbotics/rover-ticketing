@@ -81,3 +81,21 @@ export function ticketsByDueDate(tickets: Ticket[]) {
 export function isOverdue(ticket: Ticket, todayKey: string) {
   return Boolean(ticket.dueDate && ticket.status !== 'Done' && ticket.dueDate.slice(0, 10) < todayKey)
 }
+
+// The team works on Pacific time, so dates render there regardless of the viewer's device.
+export const teamTimeZone = 'America/Los_Angeles'
+
+// Date-only values (due dates) are calendar days and are shown as-is; timestamps
+// (created/updated/comment times) are converted to Pacific time.
+export function formatDate(date?: string) {
+  if (!date) return 'No due date'
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(date)
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: dateOnly ? 'UTC' : teamTimeZone }).format(new Date(dateOnly ? `${date}T00:00:00Z` : date))
+}
+
+// Today's date in Pacific time as YYYY-MM-DD.
+export function teamTodayKey(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: teamTimeZone }).formatToParts(now)
+  const part = (type: string) => parts.find((item) => item.type === type)!.value
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
