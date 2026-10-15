@@ -77,6 +77,7 @@ import {
   memberUpdateStatus,
 } from "./ticketRepository";
 import { errorMessage } from "./errors";
+import logoUrl from "../assets/logos/slugbotics_logo_noBG.svg";
 
 type View = "board" | "mine" | "review" | "archive" | "lead" | "admin";
 
@@ -559,7 +560,7 @@ export function App() {
           href={location.pathname}
           aria-label="Slugbotics ticket board"
         >
-          <span className="brand-mark">S</span>
+          <img className="brand-mark" src={logoUrl} alt="" />
           <span>
             <strong>SLUGBOTICS</strong>
             <small>ROVER TEAM / TICKET BOARD</small>
@@ -860,7 +861,7 @@ function EntryScreen({
     <main className="entry-screen">
       <div className="entry-grid">
         <div className="entry-copy">
-          <span className="brand-mark large">S</span>
+          <img className="brand-mark large" src={logoUrl} alt="" />
           <p className="eyebrow">SLUGBOTICS / ROVER TEAM</p>
           <h1>
             Make the next run <em>count.</em>

@@ -11,3 +11,6 @@ html[data-theme='dark'] .form-grid input{background:#172d3c;color:#edf5f7;border
 .topbar{position:sticky;top:0;z-index:5}
 @media(min-width:621px){.sidebar{position:sticky;top:72px;align-self:flex-start;height:calc(100vh - 72px);height:calc(100dvh - 72px);overflow-y:auto}}
 .subteam-picker{border:0;padding:0;margin:18px 0 6px;display:flex;flex-wrap:wrap;gap:4px 16px}.subteam-picker legend{font-size:11px;font-weight:700;margin-bottom:8px;padding:0}.subteam-picker .check-control{padding-bottom:0}
+/* Slugbotics logo (yellow, transparent): the large entry-screen mark sits on a navy tile so it reads on the light theme. */
+img.brand-mark{display:block;width:46px;height:30px;object-fit:contain;background:none;transform:none}
+img.brand-mark.large{box-sizing:content-box;width:76px;height:49px;object-fit:contain;padding:12px 14px;background:var(--navy);border-radius:8px}
