@@ -5,3 +5,5 @@ html[data-theme='dark'] .ticket-form textarea,html[data-theme='dark'] .ticket-fo
 html[data-theme='dark'] .date-range-panel{background:#172d3c;border-color:#38515f}html[data-theme='dark'] .date-range-panel input{background:#122331;color:#edf5f7;border-color:#38515f}
 .lead-status-select{margin-left:auto;border:1px solid var(--line);padding:6px 8px;background:#fff;color:var(--navy);font-size:11px}.status-banner{flex-wrap:wrap}html[data-theme='dark'] .lead-status-select{background:#172d3c;color:#edf5f7;border-color:#38515f}
 .top-create{background:var(--gold);color:#101b24;border-color:var(--gold)}.top-create:hover{background:#efbd45}.heading-actions{display:flex;gap:10px;flex-wrap:wrap}.lead-link+.lead-link,.lead-session+.lead-link{padding-top:10px}.admin-warning code{font-family:'DM Mono',monospace;font-size:11px}
+.form-grid input{width:100%;border:1px solid var(--line);padding:10px;background:#fff;color:var(--navy);font:inherit;font-size:13px}
+html[data-theme='dark'] .form-grid input{background:#172d3c;color:#edf5f7;border-color:#38515f;color-scheme:dark}
