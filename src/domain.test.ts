@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { demoTickets } from './demoData'
-import { archivedTickets, boardTickets, canMemberTransition, filterTickets, leadCanReview, participantsFor, reviewQueue } from './domain'
+import { archivedTickets, boardTickets, calendarDays, canMemberTransition, filterTickets, isOverdue, ticketsByDueDate, toDateKey, leadCanReview, participantsFor, reviewQueue } from './domain'
 
 describe('ticket board rules', () => {
   it('matches a ticket under every subteam it involves', () => {
@@ -58,5 +58,23 @@ describe('ticket board rules', () => {
     expect(reviewQueue([software, science], { role: 'administrator', scopes: [] })).toHaveLength(2)
     expect(leadCanReview(null, software)).toBe(false)
     expect(leadCanReview(lead, { ...science, subteams: ['Science', 'Software'] })).toBe(true)
+  })
+
+  it('lays out whole weeks for a calendar month and groups tickets by due date', () => {
+    const days = calendarDays(2026, 9) // October 2026 starts on a Thursday
+    expect(days).toHaveLength(35)
+    expect(toDateKey(days[0])).toBe('2026-09-27')
+    expect(toDateKey(days[34])).toBe('2026-10-31')
+    expect(calendarDays(2026, 1)).toHaveLength(28) // February 2026 fits exactly four weeks
+    const grouped = ticketsByDueDate(demoTickets)
+    expect(grouped.get('2026-10-30')?.map((t) => t.id)).toEqual(['RB-104'])
+    expect([...grouped.values()].flat().every((t) => t.dueDate)).toBe(true)
+  })
+
+  it('only flags unfinished work past its due date as overdue', () => {
+    const ticket = { ...demoTickets[0], dueDate: '2026-10-10' }
+    expect(isOverdue(ticket, '2026-10-14')).toBe(true)
+    expect(isOverdue(ticket, '2026-10-10')).toBe(false)
+    expect(isOverdue({ ...ticket, status: 'Done' as const }, '2026-10-14')).toBe(false)
   })
 })

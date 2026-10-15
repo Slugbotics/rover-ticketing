@@ -77,9 +77,17 @@ import {
   memberUpdateStatus,
 } from "./ticketRepository";
 import { errorMessage } from "./errors";
+import { CalendarView } from "./CalendarView";
 import logoUrl from "../assets/logos/slugbotics_logo_noBG.svg";
 
-type View = "board" | "mine" | "review" | "archive" | "lead" | "admin";
+type View =
+  | "board"
+  | "mine"
+  | "calendar"
+  | "review"
+  | "archive"
+  | "lead"
+  | "admin";
 
 function formatDate(date?: string) {
   return date
@@ -668,6 +676,15 @@ export function App() {
               }
             />
             <NavButton
+              icon={<CalendarDays size={17} />}
+              label="Calendar"
+              active={view === "calendar"}
+              onClick={() => {
+                setView("calendar");
+                closeTicket();
+              }}
+            />
+            <NavButton
               icon={<Archive size={17} />}
               label="Archive"
               active={view === "archive"}
@@ -773,6 +790,8 @@ export function App() {
               openTicket={openTicket}
               onDecision={(ticket, status) => updateLeadStatus(ticket, status)}
             />
+          ) : view === "calendar" ? (
+            <CalendarView tickets={tickets} openTicket={openTicket} />
           ) : view === "archive" ? (
             <ArchiveView
               tickets={archive}

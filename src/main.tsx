@@ -8,6 +8,7 @@ import './contrast-fixes.css'
 import './entry-contrast.css'
 import './lead.css'
 import './detail.css'
+import './calendar.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><App /></StrictMode>,
