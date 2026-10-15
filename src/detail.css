@@ -109,3 +109,4 @@ html[data-theme='dark'] .identity-lead{background:#172d3c;border-color:#38515f;c
   .user-name{max-width:90px}
   .identity-popover{right:12px;left:auto;max-width:calc(100vw - 24px)}
 }
+.detail-header-actions{display:flex;gap:8px;flex-wrap:wrap}

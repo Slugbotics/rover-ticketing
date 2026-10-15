@@ -70,6 +70,7 @@ import {
 } from "./leadAuth";
 import { LeadTicketForm, type TicketDraft } from "./LeadTicketForm";
 import {
+  adminUpdateTicket,
   createTicket as createSharedTicket,
   leadUpdateStatus,
   memberUpdateStatus,
@@ -128,6 +129,7 @@ export function App() {
   const [showLeadSignIn, setShowLeadSignIn] = useState(false);
   const [leadAccess, setLeadAccess] = useState<LeadAccess | null>(null);
   const [showTicketForm, setShowTicketForm] = useState(false);
+  const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const isAdmin = leadAccess?.role === "administrator";
 
   useEffect(() => {
@@ -203,6 +205,7 @@ export function App() {
     ],
   );
   const selected = tickets.find((ticket) => ticket.id === selectedId);
+  const editingTicket = tickets.find((ticket) => ticket.id === editingTicketId);
   const queue = useMemo(() => reviewQueue(tickets, leadAccess), [tickets, leadAccess]);
   const archive = useMemo(() => archivedTickets(tickets), [tickets]);
 
@@ -460,6 +463,33 @@ export function App() {
     await createSharedTicket(draft);
     setTickets(await loadTickets());
     setShowTicketForm(false);
+  }
+  async function editTicket(ticket: Ticket, draft: TicketDraft) {
+    if (!isAdmin) throw new Error("Administrator access is required.");
+    if (!hasSupabaseConfig) {
+      updateTicket(
+        ticket.id,
+        {
+          title: draft.title.trim(),
+          description: draft.description.trim(),
+          criteria: draft.criteria
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          competition: draft.competition,
+          subteam: draft.subteam,
+          priority: draft.priority,
+          beginnerFriendly: draft.beginnerFriendly,
+          effort: draft.effort.trim() || undefined,
+          dueDate: draft.dueDate || undefined,
+        },
+        "edited this ticket",
+      );
+    } else {
+      await adminUpdateTicket(ticket.id, draft);
+      setTickets(await loadTickets());
+    }
+    setEditingTicketId(null);
   }
   // Callers show errors inline, so these throw instead of replacing the page.
   async function updateLeadStatus(ticket: Ticket, status: Status) {
@@ -727,6 +757,9 @@ export function App() {
               leadInScope={leadCanReview(leadAccess, selected)}
               onLeadStatus={(status) => updateLeadStatus(selected, status)}
               onMemberStatus={(status) => updateMemberStatus(selected, status)}
+              onEdit={
+                isAdmin ? () => setEditingTicketId(selected.id) : undefined
+              }
             />
           ) : view === "lead" && leadAccess ? (
             <LeadOverviewBase
@@ -799,6 +832,14 @@ export function App() {
         <LeadTicketForm
           onClose={() => setShowTicketForm(false)}
           onSubmit={createLeadTicket}
+        />
+      )}
+      {editingTicket && isAdmin && (
+        <LeadTicketForm
+          key={editingTicket.id}
+          ticket={editingTicket}
+          onClose={() => setEditingTicketId(null)}
+          onSubmit={(draft) => editTicket(editingTicket, draft)}
         />
       )}
     </div>

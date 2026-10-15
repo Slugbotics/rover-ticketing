@@ -158,7 +158,19 @@ export async function createSubticket(
   if (error) throw error;
 }
 export async function createTicket(draft: TicketDraft) {
-  const { error } = await requireSupabase().rpc("create_ticket", {
+  const { error } = await requireSupabase().rpc("create_ticket", draftParams(draft));
+  if (error) throw error;
+}
+// The server re-checks that the caller is an administrator.
+export async function adminUpdateTicket(ticketId: string, draft: TicketDraft) {
+  const { error } = await requireSupabase().rpc("admin_update_ticket", {
+    ticket_id: ticketId,
+    ...draftParams(draft),
+  });
+  if (error) throw error;
+}
+function draftParams(draft: TicketDraft) {
+  return {
     ticket_title: draft.title.trim(),
     ticket_description: draft.description.trim(),
     criteria: draft.criteria
@@ -171,8 +183,7 @@ export async function createTicket(draft: TicketDraft) {
     is_beginner_friendly: draft.beginnerFriendly,
     ticket_effort: draft.effort.trim() || null,
     ticket_due_date: draft.dueDate || null,
-  });
-  if (error) throw error;
+  };
 }
 export async function memberUpdateStatus(
   ticketId: string,
@@ -205,6 +216,7 @@ const activityLabels: Record<string, string> = {
   left: "left this ticket",
   claimed: "claimed this ticket",
   created_subticket: "created this sub-ticket",
+  edited: "edited this ticket",
 };
 
 function describeActivity(action: string, details: Record<string, unknown> | null) {

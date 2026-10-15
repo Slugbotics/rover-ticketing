@@ -10,6 +10,7 @@
 - [x] Environment files are ignored and `.env.example` contains placeholders only.
 - [x] TypeScript production build passes.
 - [x] Domain tests cover filters and member transitions.
+- [x] Administrators can edit ticket content through `admin_update_ticket`; direct ticket updates are not allowed.
 - [ ] Apply migration to the intended Supabase project.
 - [ ] Enable anonymous auth and configure the first administrator.
 - [ ] Wire and verify the production Supabase data adapter.

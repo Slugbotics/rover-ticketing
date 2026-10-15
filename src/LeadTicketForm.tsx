@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Competition, Priority, Subteam } from "./types";
+import type { Competition, Priority, Subteam, Ticket } from "./types";
 import { errorMessage } from "./errors";
 
 export type TicketDraft = {
@@ -25,14 +25,34 @@ const initialDraft: TicketDraft = {
   dueDate: "",
 };
 
+export function draftFromTicket(ticket: Ticket): TicketDraft {
+  return {
+    title: ticket.title,
+    description: ticket.description,
+    criteria: ticket.criteria.join("\n"),
+    competition: ticket.competition,
+    subteam: ticket.subteam,
+    priority: ticket.priority,
+    beginnerFriendly: ticket.beginnerFriendly,
+    effort: ticket.effort || "",
+    dueDate: ticket.dueDate ? ticket.dueDate.slice(0, 10) : "",
+  };
+}
+
+// Pass `ticket` to edit an existing ticket instead of creating one.
 export function LeadTicketForm({
+  ticket,
   onClose,
   onSubmit,
 }: {
+  ticket?: Ticket;
   onClose: () => void;
   onSubmit: (draft: TicketDraft) => Promise<void>;
 }) {
-  const [draft, setDraft] = useState(initialDraft);
+  const editing = Boolean(ticket);
+  const [draft, setDraft] = useState(() =>
+    ticket ? draftFromTicket(ticket) : initialDraft,
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   function set<K extends keyof TicketDraft>(key: K, value: TicketDraft[K]) {
@@ -50,7 +70,10 @@ export function LeadTicketForm({
       await onSubmit(draft);
     } catch (reason) {
       setError(
-        errorMessage(reason, "Unable to create ticket."),
+        errorMessage(
+          reason,
+          editing ? "Unable to save ticket." : "Unable to create ticket.",
+        ),
       );
     } finally {
       setBusy(false);
@@ -67,8 +90,10 @@ export function LeadTicketForm({
         >
           ×
         </button>
-        <p className="eyebrow">LEAD ACTION / NEW WORK</p>
-        <h2>Create ticket</h2>
+        <p className="eyebrow">
+          {editing ? `ADMIN ACTION / ${ticket!.id}` : "LEAD ACTION / NEW WORK"}
+        </p>
+        <h2>{editing ? "Edit ticket" : "Create ticket"}</h2>
         <label htmlFor="new-title">Title</label>
         <input
           id="new-title"
@@ -135,6 +160,15 @@ export function LeadTicketForm({
               onChange={(e) => set("dueDate", e.target.value)}
             />
           </label>
+          <label>
+            Estimate
+            <input
+              value={draft.effort}
+              maxLength={64}
+              placeholder="e.g. 2-4 hours"
+              onChange={(e) => set("effort", e.target.value)}
+            />
+          </label>
         </div>
         <label htmlFor="new-criteria">
           Completion criteria <span className="field-hint">one per line</span>
@@ -155,7 +189,13 @@ export function LeadTicketForm({
         </label>
         {error && <p className="form-error">{error}</p>}
         <button className="button primary full" disabled={busy} type="submit">
-          {busy ? "Creating..." : "Create ticket"}
+          {editing
+            ? busy
+              ? "Saving..."
+              : "Save changes"
+            : busy
+              ? "Creating..."
+              : "Create ticket"}
         </button>
       </form>
     </div>

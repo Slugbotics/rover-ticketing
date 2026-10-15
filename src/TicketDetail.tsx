@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArrowLeft, CalendarDays, Check, ChevronRight, ClipboardCheck, Clock3, CornerDownRight, Link as LinkIcon, MessageSquare, UserRound, Activity as ActivityIcon, Users } from 'lucide-react'
+import { Archive, ArrowLeft, CalendarDays, Check, ChevronRight, ClipboardCheck, Clock3, CornerDownRight, Link as LinkIcon, MessageSquare, Pencil, UserRound, Activity as ActivityIcon, Users } from 'lucide-react'
 import type { Comment, Status, Ticket } from './types'
 import { canMemberTransition, participantsFor } from './domain'
 import { errorMessage } from './errors'
@@ -21,9 +21,11 @@ type Props = {
   leadInScope?: boolean
   onLeadStatus: (status: Status) => Promise<void>
   onMemberStatus: (status: Status) => Promise<void>
+  // Set only for administrators (server re-checks).
+  onEdit?: () => void
 }
 
-export function TicketDetail({ ticket, allTickets, sessionId, onBack, onClaim, onRelease, onOpenTicket, onCreateSubticket, onComment, leadInScope, onLeadStatus, onMemberStatus }: Props) {
+export function TicketDetail({ ticket, allTickets, sessionId, onBack, onClaim, onRelease, onOpenTicket, onCreateSubticket, onComment, leadInScope, onLeadStatus, onMemberStatus, onEdit }: Props) {
   const [statusError, setStatusError] = useState('')
   const [statusBusy, setStatusBusy] = useState(false)
   const participants = participantsFor(ticket)
@@ -47,7 +49,7 @@ export function TicketDetail({ ticket, allTickets, sessionId, onBack, onClaim, o
   return <div className="detail">
     <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to board</button>
     {ticket.parentTicketId && <button className="parent-link" onClick={() => onOpenTicket(ticket.parentTicketId!)}><CornerDownRight size={14} /> Sub-ticket of <b>{ticket.parentTicketId}</b>{parent && <span>{parent.title}</span>}</button>}
-    <div className="detail-header"><div><div className="ticket-id">{ticket.id} <span className="competition-tag">{ticket.competition}</span></div><h1>{ticket.title}</h1><p className="muted">Created by {ticket.creator} · updated {formatDate(ticket.updatedAt)}</p></div><button className="button outline" onClick={() => void navigator.clipboard?.writeText(location.href)}><LinkIcon size={16} /> Share</button></div>
+    <div className="detail-header"><div><div className="ticket-id">{ticket.id} <span className="competition-tag">{ticket.competition}</span></div><h1>{ticket.title}</h1><p className="muted">Created by {ticket.creator} · updated {formatDate(ticket.updatedAt)}</p></div><div className="detail-header-actions">{onEdit && <button className="button outline" onClick={onEdit}><Pencil size={16} /> Edit</button>}<button className="button outline" onClick={() => void navigator.clipboard?.writeText(location.href)}><LinkIcon size={16} /> Share</button></div></div>
     <div className="detail-grid">
       <section className="detail-primary">
         <div className="status-banner"><span className={`status-tag ${ticket.status.toLowerCase().replace(' ', '-')}`}>{ticket.status}</span><span className={`priority ${ticket.priority.toLowerCase()}`}>{ticket.priority} priority</span>{leadInScope && <select className="lead-status-select" aria-label="Lead ticket status" value={ticket.status} disabled={statusBusy} onChange={(event) => void changeStatus(onLeadStatus, event.target.value as Status)}>{['Open', 'In Progress', 'Blocked', 'In Review', 'Done'].map((status) => <option key={status}>{status}</option>)}</select>}</div>
