@@ -88,7 +88,7 @@ export async function loadTickets(): Promise<Ticket[]> {
         ? row.completion_criteria
         : [],
       competition: row.competition,
-      subteam: row.primary_subteam,
+      subteams: row.subteams?.length ? row.subteams : [row.primary_subteam],
       status: row.status,
       priority: row.priority,
       beginnerFriendly: row.beginner_friendly,
@@ -178,7 +178,7 @@ function draftParams(draft: TicketDraft) {
       .map((item) => item.trim())
       .filter(Boolean),
     ticket_competition: draft.competition,
-    ticket_subteam: draft.subteam,
+    ticket_subteams: draft.subteams,
     ticket_priority: draft.priority,
     is_beginner_friendly: draft.beginnerFriendly,
     ticket_effort: draft.effort.trim() || null,

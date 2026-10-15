@@ -2,7 +2,7 @@
 
 - [x] Member entry asks only for a Discord username.
 - [x] Browser session and display username are separate concepts.
-- [x] Board filters include URC, Lunabotics, Both, subteam, status, priority, beginner-friendly, and unassigned.
+- [x] Board quick filters cover Mechanical, Electrical, Software, and Science; the Filters panel adds subteam (incl. General), status, priority, beginner-friendly, and unassigned.
 - [x] Ticket detail has criteria, comments, activity, resources, and shareable query URL.
 - [x] Demo mode is visibly labeled and never hidden behind a production error.
 - [x] Supabase migration includes tables, indexes, RLS, lead scopes, atomic claim, transitions, and activity logging.

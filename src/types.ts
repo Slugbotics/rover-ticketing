@@ -1,5 +1,5 @@
 export type Competition = 'URC' | 'Lunabotics' | 'Both'
-export type Subteam = 'Mechanical' | 'Electrical' | 'Software' | 'Science' | 'General/Shared'
+export type Subteam = 'Mechanical' | 'Electrical' | 'Software' | 'Science' | 'General'
 export type Status = 'Open' | 'In Progress' | 'Blocked' | 'In Review' | 'Done'
 export type Priority = 'Low' | 'Medium' | 'High'
 
@@ -30,7 +30,8 @@ export type Ticket = {
   description: string
   criteria: string[]
   competition: Competition
-  subteam: Subteam
+  // First entry is the primary subteam.
+  subteams: Subteam[]
   status: Status
   priority: Priority
   beginnerFriendly: boolean

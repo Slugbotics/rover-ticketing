@@ -1,19 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { demoTickets } from './demoData'
-import { archivedTickets, boardTickets, canMemberTransition, competitionMatches, filterTickets, leadCanReview, participantsFor, reviewQueue } from './domain'
+import { archivedTickets, boardTickets, canMemberTransition, filterTickets, leadCanReview, participantsFor, reviewQueue } from './domain'
 
 describe('ticket board rules', () => {
-  it('includes Both tickets in either competition view but not in Both-only by accident', () => {
-    const both = demoTickets.find((ticket) => ticket.competition === 'Both')!
-    expect(competitionMatches(both, 'URC')).toBe(true)
-    expect(competitionMatches(both, 'Lunabotics')).toBe(true)
-    expect(competitionMatches(both, 'Both')).toBe(true)
+  it('matches a ticket under every subteam it involves', () => {
+    const filters = { search: '', status: 'All' as const, priority: 'All' as const, beginner: false, unassigned: false }
+    const ids = (subteam: 'Mechanical' | 'Electrical' | 'Software') => filterTickets(demoTickets, { ...filters, subteam }).map((ticket) => ticket.id)
+    expect(ids('Mechanical')).toContain('RB-104')
+    expect(ids('Electrical')).toContain('RB-104')
+    expect(ids('Software')).not.toContain('RB-104')
   })
 
   it('filters by search, status, and unassigned state', () => {
-    const result = filterTickets(demoTickets, { competition: 'All', search: 'waypoint', subteam: 'All', status: 'In Progress', priority: 'All', beginner: false, unassigned: false })
+    const result = filterTickets(demoTickets, { search: 'waypoint', subteam: 'All', status: 'In Progress', priority: 'All', beginner: false, unassigned: false })
     expect(result.map((ticket) => ticket.id)).toEqual(['RB-097'])
-    expect(filterTickets(demoTickets, { competition: 'All', search: '', subteam: 'All', status: 'All', priority: 'All', beginner: false, unassigned: true }).every((ticket) => !ticket.assignee)).toBe(true)
+    expect(filterTickets(demoTickets, { search: '', subteam: 'All', status: 'All', priority: 'All', beginner: false, unassigned: true }).every((ticket) => !ticket.assignee)).toBe(true)
   })
 
   it('only allows member-owned work to move through member transitions', () => {
@@ -50,11 +51,12 @@ describe('ticket board rules', () => {
 
   it('scopes the review queue to the lead subteams unless administrator', () => {
     const base = { ...demoTickets[0], status: 'In Review' as const }
-    const software = { ...base, id: 'RB-300', subteam: 'Software' as const }
-    const science = { ...base, id: 'RB-301', subteam: 'Science' as const }
+    const software = { ...base, id: 'RB-300', subteams: ['Software' as const] }
+    const science = { ...base, id: 'RB-301', subteams: ['Science' as const] }
     const lead = { role: 'subteam_lead' as const, scopes: ['Software'] }
     expect(reviewQueue([software, science], lead).map((t) => t.id)).toEqual(['RB-300'])
     expect(reviewQueue([software, science], { role: 'administrator', scopes: [] })).toHaveLength(2)
     expect(leadCanReview(null, software)).toBe(false)
+    expect(leadCanReview(lead, { ...science, subteams: ['Science', 'Software'] })).toBe(true)
   })
 })

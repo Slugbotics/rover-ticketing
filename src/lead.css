@@ -7,3 +7,7 @@ html[data-theme='dark'] .date-range-panel{background:#172d3c;border-color:#38515
 .top-create{background:var(--gold);color:#101b24;border-color:var(--gold)}.top-create:hover{background:#efbd45}.heading-actions{display:flex;gap:10px;flex-wrap:wrap}.lead-link+.lead-link,.lead-session+.lead-link{padding-top:10px}.admin-warning code{font-family:'DM Mono',monospace;font-size:11px}
 .form-grid input{width:100%;border:1px solid var(--line);padding:10px;background:#fff;color:var(--navy);font:inherit;font-size:13px}
 html[data-theme='dark'] .form-grid input{background:#172d3c;color:#edf5f7;border-color:#38515f;color-scheme:dark}
+/* Header and sidebar stay in place while the board scrolls, so lead sign-in/out is always visible. */
+.topbar{position:sticky;top:0;z-index:5}
+@media(min-width:621px){.sidebar{position:sticky;top:72px;align-self:flex-start;height:calc(100vh - 72px);height:calc(100dvh - 72px);overflow-y:auto}}
+.subteam-picker{border:0;padding:0;margin:18px 0 6px;display:flex;flex-wrap:wrap;gap:4px 16px}.subteam-picker legend{font-size:11px;font-weight:700;margin-bottom:8px;padding:0}.subteam-picker .check-control{padding-bottom:0}

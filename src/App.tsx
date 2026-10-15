@@ -29,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { demoTickets } from "./demoData";
-import type { Competition, Priority, Status, Subteam, Ticket } from "./types";
+import type { Priority, Status, Subteam, Ticket } from "./types";
 import { hasSupabaseConfig } from "./supabase";
 import {
   archivedTickets,
@@ -40,6 +40,7 @@ import {
   reviewQueue,
   statuses,
   subteams,
+  quickSubteams,
 } from "./domain";
 import { TicketDetail as SessionTicketDetail } from "./TicketDetail";
 import {
@@ -110,7 +111,6 @@ export function App() {
   const [tickets, setTickets] = useState<Ticket[]>(() =>
     hasSupabaseConfig ? [] : demoTickets,
   );
-  const [competition, setCompetition] = useState<Competition | "All">("All");
   const [search, setSearch] = useState("");
   const [subteam, setSubteam] = useState<Subteam | "All">("All");
   const [status, setStatus] = useState<Status | "All">("All");
@@ -185,7 +185,6 @@ export function App() {
   const filtered = useMemo(
     () =>
       filterTickets(boardTickets(tickets), {
-        competition,
         search,
         subteam,
         status,
@@ -195,7 +194,6 @@ export function App() {
       }),
     [
       tickets,
-      competition,
       search,
       subteam,
       status,
@@ -386,7 +384,7 @@ export function App() {
           `Sub-ticket for ${parent.title}. Add the implementation details and completion notes here.`,
         criteria: [],
         competition: parent.competition,
-        subteam: parent.subteam,
+        subteams: parent.subteams,
         status: "Open",
         priority: parent.priority,
         beginnerFriendly: parent.beginnerFriendly,
@@ -477,7 +475,7 @@ export function App() {
             .map((item) => item.trim())
             .filter(Boolean),
           competition: draft.competition,
-          subteam: draft.subteam,
+          subteams: draft.subteams,
           priority: draft.priority,
           beginnerFriendly: draft.beginnerFriendly,
           effort: draft.effort.trim() || undefined,
@@ -795,8 +793,6 @@ export function App() {
             <BoardView
               tickets={filtered}
               allTickets={boardTickets(tickets)}
-              competition={competition}
-              setCompetition={setCompetition}
               search={search}
               setSearch={setSearch}
               showFilters={showFilters}
@@ -957,8 +953,6 @@ function NavButton({
 function BoardView(props: {
   tickets: Ticket[];
   allTickets: Ticket[];
-  competition: Competition | "All";
-  setCompetition: (value: Competition | "All") => void;
   search: string;
   setSearch: (value: string) => void;
   showFilters: boolean;
@@ -979,8 +973,6 @@ function BoardView(props: {
   const {
     tickets,
     allTickets,
-    competition,
-    setCompetition,
     search,
     setSearch,
     showFilters,
@@ -1022,12 +1014,12 @@ function BoardView(props: {
         </div>
       </div>
       <div className="board-toolbar">
-        <div className="segmented" role="group" aria-label="Competition filter">
-          {(["All", "URC", "Lunabotics", "Both"] as const).map((item) => (
+        <div className="segmented" role="group" aria-label="Subteam filter">
+          {(["All", ...quickSubteams] as const).map((item) => (
             <button
               key={item}
-              className={competition === item ? "selected" : ""}
-              onClick={() => setCompetition(item)}
+              className={subteam === item ? "selected" : ""}
+              onClick={() => setSubteam(item)}
             >
               {item === "All" ? "All work" : item}
             </button>
@@ -1161,7 +1153,11 @@ function TicketRow({
           >
             {ticket.status}
           </span>
-          <span className="plain-tag">{ticket.subteam}</span>
+          {ticket.subteams.map((item) => (
+            <span className="plain-tag" key={item}>
+              {item}
+            </span>
+          ))}
           <span className={`priority ${ticket.priority.toLowerCase()}`}>
             {ticket.priority} priority
           </span>
@@ -1492,8 +1488,8 @@ function LegacyTicketDetail({
           <div className="meta-card">
             <Meta
               icon={<Users size={15} />}
-              label="Subteam"
-              value={ticket.subteam}
+              label={ticket.subteams.length > 1 ? "Subteams" : "Subteam"}
+              value={ticket.subteams.join(", ")}
             />
             <Meta
               icon={<CalendarDays size={15} />}
@@ -1957,7 +1953,7 @@ function ReviewQueueView({
                 </span>
                 <strong>{ticket.title}</strong>
                 <span className="review-meta">
-                  {ticket.subteam} ·{" "}
+                  {ticket.subteams.join(", ")} ·{" "}
                   {people.length
                     ? people.map((person) => person.username).join(", ")
                     : "No participants"}{" "}

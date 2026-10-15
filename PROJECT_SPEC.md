@@ -7,7 +7,7 @@ A shared, mobile-friendly ticket board for Slugbotics URC and Lunabotics teams. 
 Members enter a Discord username and receive an anonymous Supabase browser session. The internal auth user ID owns claims and comments. Changing the displayed username changes presentation only and cannot transfer ownership. Lead permissions require an explicitly authorized authenticated Supabase account and are enforced by RLS and SQL functions.
 
 ## Ticket model
-Tickets have one competition tag (`URC`, `Lunabotics`, or `Both`), a primary subteam, status, priority, criteria, optional effort/due date, multiple participants, comments, resources, and activity history. Tickets can have child sub-tickets through `parent_ticket_id`. Competition filters include `Both` tickets in either team view.
+Tickets have one competition tag (`URC`, `Lunabotics`, or `Both`), one or more subteams (the first is primary; `General` covers cross-team work), status, priority, criteria, optional effort/due date, multiple participants, comments, resources, and activity history. Tickets can have child sub-tickets through `parent_ticket_id`. The board's quick filters are by subteam (Mechanical, Electrical, Software, Science); a ticket appears under every subteam it involves, and a lead of any involved subteam can review it. The competition tag is shown on tickets but is not currently filterable.
 
 ## Security invariants
 - No service-role key is shipped to the browser.

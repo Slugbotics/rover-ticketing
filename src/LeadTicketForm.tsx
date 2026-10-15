@@ -1,13 +1,15 @@
 import { useState } from "react";
 import type { Competition, Priority, Subteam, Ticket } from "./types";
 import { errorMessage } from "./errors";
+import { subteams } from "./domain";
 
 export type TicketDraft = {
   title: string;
   description: string;
   criteria: string;
   competition: Competition;
-  subteam: Subteam;
+  // In selection order; the first is the primary subteam.
+  subteams: Subteam[];
   priority: Priority;
   beginnerFriendly: boolean;
   effort: string;
@@ -18,7 +20,7 @@ const initialDraft: TicketDraft = {
   description: "",
   criteria: "",
   competition: "URC",
-  subteam: "General/Shared",
+  subteams: ["General"],
   priority: "Medium",
   beginnerFriendly: false,
   effort: "",
@@ -31,7 +33,7 @@ export function draftFromTicket(ticket: Ticket): TicketDraft {
     description: ticket.description,
     criteria: ticket.criteria.join("\n"),
     competition: ticket.competition,
-    subteam: ticket.subteam,
+    subteams: ticket.subteams,
     priority: ticket.priority,
     beginnerFriendly: ticket.beginnerFriendly,
     effort: ticket.effort || "",
@@ -58,10 +60,22 @@ export function LeadTicketForm({
   function set<K extends keyof TicketDraft>(key: K, value: TicketDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
+  function toggleSubteam(subteam: Subteam) {
+    setDraft((current) => ({
+      ...current,
+      subteams: current.subteams.includes(subteam)
+        ? current.subteams.filter((item) => item !== subteam)
+        : [...current.subteams, subteam],
+    }));
+  }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (draft.title.trim().length < 3 || draft.description.trim().length < 1) {
       setError("Title and description are required.");
+      return;
+    }
+    if (draft.subteams.length === 0) {
+      setError("Choose at least one subteam.");
       return;
     }
     setBusy(true);
@@ -110,6 +124,21 @@ export function LeadTicketForm({
           onChange={(e) => set("description", e.target.value)}
           required
         />
+        <fieldset className="subteam-picker">
+          <legend>
+            Subteams <span className="field-hint">select all involved</span>
+          </legend>
+          {subteams.map((subteam) => (
+            <label className="check-control" key={subteam}>
+              <input
+                type="checkbox"
+                checked={draft.subteams.includes(subteam)}
+                onChange={() => toggleSubteam(subteam)}
+              />
+              {subteam}
+            </label>
+          ))}
+        </fieldset>
         <div className="form-grid">
           <label>
             Competition
@@ -122,23 +151,6 @@ export function LeadTicketForm({
               <option>URC</option>
               <option>Lunabotics</option>
               <option>Both</option>
-            </select>
-          </label>
-          <label>
-            Subteam
-            <select
-              value={draft.subteam}
-              onChange={(e) => set("subteam", e.target.value as Subteam)}
-            >
-              {[
-                "Mechanical",
-                "Electrical",
-                "Software",
-                "Science",
-                "General/Shared",
-              ].map((item) => (
-                <option key={item}>{item}</option>
-              ))}
             </select>
           </label>
           <label>
