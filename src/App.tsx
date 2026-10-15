@@ -882,6 +882,7 @@ function EntryScreen({
           <div className="entry-card-head">
             <p className="eyebrow">MEMBER ENTRY</p>
             <button
+              type="button"
               className="theme-toggle"
               aria-label={
                 darkMode ? "Switch to light mode" : "Switch to dark mode"
