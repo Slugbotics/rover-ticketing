@@ -104,6 +104,53 @@ export async function completePendingMerge(): Promise<number | null> {
   return data ?? 0
 }
 
+// Merges guest sessions whose typed name matches this account's Discord
+// username (checked server-side). Returns the number of tickets moved.
+export async function claimGuestSessions(): Promise<number> {
+  if (!supabase) return 0
+  const { data, error } = await supabase.rpc('claim_guest_sessions')
+  if (error) throw error
+  return data ?? 0
+}
+
+export type GuestSession = {
+  userId: string
+  typedName: string | null
+  ticketCount: number
+  commentCount: number
+  createdAt: string
+}
+
+export type MemberAccount = { userId: string; name: string }
+
+// Administrator-only; the server re-checks access.
+export async function loadGuestSessions(): Promise<GuestSession[]> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  const { data, error } = await supabase.rpc('admin_list_guest_sessions')
+  if (error) throw error
+  return (data || []).map((row: { user_id: string; typed_name: string | null; ticket_count: number; comment_count: number; created_at: string }) => ({
+    userId: row.user_id,
+    typedName: row.typed_name,
+    ticketCount: Number(row.ticket_count),
+    commentCount: Number(row.comment_count),
+    createdAt: row.created_at,
+  }))
+}
+
+export async function loadMemberAccounts(): Promise<MemberAccount[]> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  const { data, error } = await supabase.rpc('admin_list_member_accounts')
+  if (error) throw error
+  return (data || []).map((row: { user_id: string; name: string }) => ({ userId: row.user_id, name: row.name }))
+}
+
+export async function mergeGuestSession(guestUserId: string, memberUserId: string): Promise<number> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  const { data, error } = await supabase.rpc('admin_merge_guest', { guest_user: guestUserId, member_user: memberUserId })
+  if (error) throw error
+  return data ?? 0
+}
+
 export async function saveMemberUsername(userId: string, username: string) {
   if (!supabase) throw new Error('Supabase is not configured.')
   const { error } = await supabase.from('member_profiles').upsert({ user_id: userId, discord_username: username, updated_at: new Date().toISOString() })

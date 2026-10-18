@@ -126,3 +126,9 @@ html[data-theme='dark'] .discord-banner span{color:#9aadb9}
 .entry-lead-link{width:100%;border-left:0;border-right:0;border-bottom:0;background:none;text-align:left;cursor:pointer;font:inherit;font-size:10px}
 .entry-lead-link:hover,.entry-lead-link:focus-visible{text-decoration:underline}
 @media(max-width:620px){.discord-banner-actions{width:100%}.discord-banner-actions .button{flex:1}}
+.guest-sessions{margin-top:32px}
+.guest-sessions h2{font-size:18px;margin:0 0 6px;color:var(--navy)}
+.guest-sessions>.muted{font-size:12px;margin:0 0 14px;max-width:680px}
+.guest-sessions select{width:100%;max-width:220px;border:1px solid var(--line);padding:7px;background:#fff;color:var(--navy);font:inherit;font-size:12px}
+html[data-theme='dark'] .guest-sessions h2{color:#edf5f7}
+html[data-theme='dark'] .guest-sessions select{background:#172d3c;color:#edf5f7;border-color:#38515f}

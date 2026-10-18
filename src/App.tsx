@@ -50,8 +50,14 @@ import {
   isDiscordUser,
   saveMemberUsername,
   signInWithDiscord,
+  claimGuestSessions,
   completePendingMerge,
+  loadGuestSessions,
+  loadMemberAccounts,
+  mergeGuestSession,
   takeRedirectError,
+  type GuestSession,
+  type MemberAccount,
 } from "./memberAuth";
 import {
   addComment,
@@ -183,13 +189,16 @@ export function App() {
         const discord = isDiscordUser(identity.user);
         setDiscordLinked(discord);
         if (discord) {
-          // Finishes moving a guest session's work over after Discord sign-in.
-          // A failed merge is reported but never blocks the board.
+          // Moves guest-session work over after Discord sign-in: this browser's
+          // own guest session (merge token), then any guest session whose typed
+          // name matches the Discord username. Failures never block the board.
           try {
-            const moved = await completePendingMerge();
+            const moved =
+              ((await completePendingMerge()) || 0) +
+              (await claimGuestSessions());
             if (moved)
               setDiscordNotice({
-                message: `Moved ${moved} ticket${moved === 1 ? "" : "s"} from this browser to your Discord account.`,
+                message: `Moved ${moved} ticket${moved === 1 ? "" : "s"} from your earlier sessions to your Discord account.`,
                 tone: "info",
               });
           } catch (error) {
@@ -2110,7 +2119,143 @@ function AdminView({ currentUserId }: { currentUserId: string }) {
           </div>
         ))}
       </div>
+      <GuestSessionsPanel />
     </>
+  );
+}
+
+// Guest sessions from before Discord sign-in that still hold work, usually
+// because the name typed back then does not match a Discord username.
+function GuestSessionsPanel() {
+  const [guests, setGuests] = useState<GuestSession[] | null>(null);
+  const [members, setMembers] = useState<MemberAccount[]>([]);
+  const [targets, setTargets] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function refresh() {
+    try {
+      const [guestRows, memberRows] = await Promise.all([
+        loadGuestSessions(),
+        loadMemberAccounts(),
+      ]);
+      setGuests(guestRows);
+      setMembers(memberRows);
+      // Preselect a member whose name matches what the guest typed.
+      setTargets((current) => {
+        const next = { ...current };
+        for (const guest of guestRows) {
+          if (next[guest.userId]) continue;
+          const typed = guest.typedName?.trim().replace(/^@/, "").toLowerCase();
+          const match = memberRows.find(
+            (member) => member.name.trim().toLowerCase() === typed,
+          );
+          if (match) next[guest.userId] = match.userId;
+        }
+        return next;
+      });
+    } catch (reason) {
+      setError(errorMessage(reason, "Unable to load guest sessions."));
+    }
+  }
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  async function merge(guest: GuestSession) {
+    const target = members.find((member) => member.userId === targets[guest.userId]);
+    if (!target) return;
+    setBusyId(guest.userId);
+    setError("");
+    setNotice("");
+    try {
+      const moved = await mergeGuestSession(guest.userId, target.userId);
+      setNotice(
+        `Moved ${guest.typedName || "guest"}'s work to ${target.name} (${moved} ticket${moved === 1 ? "" : "s"}).`,
+      );
+      await refresh();
+    } catch (reason) {
+      setError(errorMessage(reason, "Unable to merge guest session."));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section className="guest-sessions">
+      <h2>Unclaimed guest work</h2>
+      <p className="muted">
+        Tickets and comments from before Discord sign-in. Members get theirs
+        automatically when the name they typed matches their Discord username;
+        assign the rest here. The member must have signed in with Discord once.
+      </p>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && <p className="success-note">{notice}</p>}
+      <div className="lead-table">
+        <div className="table-head admin-table">
+          <span>Typed name</span>
+          <span>Work</span>
+          <span>Belongs to</span>
+          <span>Actions</span>
+        </div>
+        {guests === null && !error && (
+          <div className="table-row admin-table">
+            <span>Loading guest sessions...</span>
+          </div>
+        )}
+        {guests?.length === 0 && (
+          <div className="table-row admin-table">
+            <span>No unclaimed guest work.</span>
+          </div>
+        )}
+        {guests?.map((guest) => (
+          <div className="table-row admin-table" key={guest.userId}>
+            <span>
+              <b>{guest.typedName || "No name"}</b>
+              <small>started {formatDate(guest.createdAt)}</small>
+            </span>
+            <span>
+              {guest.ticketCount} ticket{guest.ticketCount === 1 ? "" : "s"} ·{" "}
+              {guest.commentCount} comment{guest.commentCount === 1 ? "" : "s"}
+            </span>
+            <span>
+              <select
+                aria-label={`Member account for ${guest.typedName || "guest"}`}
+                value={targets[guest.userId] || ""}
+                onChange={(event) =>
+                  setTargets((current) => ({
+                    ...current,
+                    [guest.userId]: event.target.value,
+                  }))
+                }
+              >
+                <option value="">Choose member…</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <span className="admin-actions">
+              <button
+                className="text-button"
+                type="button"
+                disabled={!targets[guest.userId] || busyId !== null}
+                onClick={() => void merge(guest)}
+              >
+                {busyId === guest.userId ? "Moving..." : "Move work"}
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
