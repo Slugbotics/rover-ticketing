@@ -12,7 +12,7 @@ npm run dev
 
 The existing `.env` must define `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Never commit `.env`, print its values, or put a service-role key in it. Enable Anonymous Sign-Ins in Supabase Authentication. Set `VITE_DEMO_MODE=true` only when intentionally reviewing sample tickets.
 
-With Supabase configured, the app creates one anonymous Supabase auth identity per persisted browser session and stores the self-reported Discord username in `member_profiles`. Editing the name keeps the same internal identity. Starting a new session signs out and creates a new identity; entering the same name does not transfer tickets, because a display name cannot authenticate ownership.
+With Supabase configured, members sign in with Discord (Supabase's Discord provider), so the same account and tickets follow them across devices, and their board name is their verified Discord handle in `member_profiles`. Every visitor first gets an anonymous Supabase session so the board can load. Older members whose work lives in such a guest session see a prompt to connect Discord; before the redirect, the guest session issues a one-time merge token (`create_account_merge`), and after sign-in the Discord account redeems it (`complete_account_merge`) to take over that session's tickets and comments. A typed display name is never treated as proof of identity.
 
 Checks:
 
@@ -23,7 +23,7 @@ npm run build
 
 ## Supabase setup
 
-1. In the Supabase dashboard, enable Anonymous Sign-Ins under Authentication > Providers.
+1. In the Supabase dashboard, enable Anonymous Sign-Ins and the Discord provider under Authentication > Providers, and add the site URL (for example `https://slugbotics.github.io/rover-ticketing/**`) under Authentication > URL Configuration > Redirect URLs.
 2. Apply `supabase/migrations/202610120001_ticket_board.sql` with the Supabase CLI (`supabase link --project-ref YOUR_PROJECT_REF`, then `supabase db push`) or paste it into the SQL editor. Do not run it against production until reviewed and authorized.
 3. Create the first administrator: create a normal Supabase Auth user through the dashboard, then run this SQL while signed in as the project owner, replacing the UUID with that user's Auth user ID:
 
@@ -42,7 +42,7 @@ insert into public.leads (user_id, role) values ('AUTH_USER_UUID', 'subteam_lead
 insert into public.lead_scopes (user_id, subteam) values ('AUTH_USER_UUID', 'Software');
 ```
 
-Anonymous members never inherit lead permissions. Browser-scoped ownership does not automatically transfer between devices.
+Anonymous and Discord members never inherit lead permissions. Guest (anonymous) ownership stays with its browser until the member signs in with Discord, which merges it into their account.
 
 ## GitHub Pages
 

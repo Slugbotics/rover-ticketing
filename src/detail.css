@@ -112,3 +112,17 @@ html[data-theme='dark'] .identity-lead{background:#172d3c;border-color:#38515f;c
 .detail-header-actions{display:flex;gap:8px;flex-wrap:wrap}
 .heading-meta-link{border:0;background:none;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .heading-meta-link:hover,.heading-meta-link:focus-visible{text-decoration:underline}
+/* Discord account banner and entry-screen lead link. */
+.discord-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;margin-bottom:20px;border:1px solid var(--line);border-left:4px solid #5865f2;background:#f1f3ff;color:#3c45a5}
+.discord-banner.warning{border-left-color:#d19a2d;background:#fff8e6;color:#8a6417}
+.discord-banner>div:first-of-type{flex:1;min-width:200px}
+.discord-banner strong{display:block;color:var(--navy);font-size:13px}
+.discord-banner span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.discord-banner-actions{display:flex;gap:8px;flex-wrap:wrap}
+html[data-theme='dark'] .discord-banner{background:#1c2340;border-color:#29404f;border-left-color:#7983f5;color:#aab2ff}
+html[data-theme='dark'] .discord-banner.warning{background:#2f2814;border-left-color:#d19a2d;color:#f0cf75}
+html[data-theme='dark'] .discord-banner strong{color:#edf5f7}
+html[data-theme='dark'] .discord-banner span{color:#9aadb9}
+.entry-lead-link{width:100%;border-left:0;border-right:0;border-bottom:0;background:none;text-align:left;cursor:pointer;font:inherit;font-size:10px}
+.entry-lead-link:hover,.entry-lead-link:focus-visible{text-decoration:underline}
+@media(max-width:620px){.discord-banner-actions{width:100%}.discord-banner-actions .button{flex:1}}

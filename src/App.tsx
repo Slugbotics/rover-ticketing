@@ -47,7 +47,11 @@ import { TicketDetail as SessionTicketDetail } from "./TicketDetail";
 import {
   endMemberIdentity,
   ensureMemberIdentity,
+  isDiscordUser,
   saveMemberUsername,
+  signInWithDiscord,
+  completePendingMerge,
+  takeRedirectError,
 } from "./memberAuth";
 import {
   addComment,
@@ -132,6 +136,9 @@ export function App() {
   const [leadAccess, setLeadAccess] = useState<LeadAccess | null>(null);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
+  const [discordLinked, setDiscordLinked] = useState(false);
+  const [discordBusy, setDiscordBusy] = useState(false);
+  const [discordNotice, setDiscordNotice] = useState<DiscordNotice>(null);
   const isAdmin = leadAccess?.role === "administrator";
 
   useEffect(() => {
@@ -158,16 +165,38 @@ export function App() {
 
   useEffect(() => {
     if (!hasSupabaseConfig) return;
+    const redirectError = takeRedirectError();
+    if (redirectError)
+      setDiscordNotice({ message: redirectError.description, tone: "error" });
     ensureMemberIdentity()
       .then(async (identity) => {
-        // A persisted password session is a lead account; restore its access
-        // instead of silently treating it as an anonymous member.
+        // A persisted non-anonymous session is a lead or a Discord member. Restore
+        // lead access if it has any; drop sessions that are neither.
         if (!identity.user.is_anonymous) {
           const access = await loadLeadAccess(identity.user.id);
           if (access) setLeadAccess(access);
-          else {
+          else if (!isDiscordUser(identity.user)) {
             await endMemberIdentity();
             identity = await ensureMemberIdentity();
+          }
+        }
+        const discord = isDiscordUser(identity.user);
+        setDiscordLinked(discord);
+        if (discord) {
+          // Finishes moving a guest session's work over after Discord sign-in.
+          // A failed merge is reported but never blocks the board.
+          try {
+            const moved = await completePendingMerge();
+            if (moved)
+              setDiscordNotice({
+                message: `Moved ${moved} ticket${moved === 1 ? "" : "s"} from this browser to your Discord account.`,
+                tone: "info",
+              });
+          } catch (error) {
+            setDiscordNotice({
+              message: errorMessage(error, "Could not move this browser's tickets to your Discord account."),
+              tone: "error",
+            });
           }
         }
         setSessionId(identity.user.id);
@@ -424,18 +453,38 @@ export function App() {
     sessionStorage.setItem("rover-session-id", nextSessionId);
     sessionStorage.removeItem("rover-username");
     setSessionId(nextSessionId);
+    setDiscordLinked(false);
+    setDiscordNotice(null);
     setUsername("");
     setDraftUsername("");
+  }
+
+  // Redirects to Discord on success, so only failures return here.
+  async function startDiscordSignIn() {
+    setDiscordBusy(true);
+    setDiscordNotice(null);
+    try {
+      await signInWithDiscord();
+    } catch (error) {
+      setDiscordNotice({
+        message: errorMessage(error, "Unable to start Discord sign-in."),
+        tone: "error",
+      });
+      setDiscordBusy(false);
+    }
   }
 
   async function handleLeadSignIn(email: string, password: string) {
     const result = await signInLead(email, password);
     // The lead account replaces the anonymous member session, so adopt its
-    // identity and give it a display name if it has none yet.
+    // identity and give it a display name if it has none yet. Leads can now
+    // sign in from the entry screen, before any member name exists.
     const identity = await ensureMemberIdentity();
-    if (identity.username) setUsername(identity.username);
-    else if (username) await saveMemberUsername(result.userId, username);
+    const name = identity.username || username || email.split("@")[0];
+    if (!identity.username) await saveMemberUsername(result.userId, name);
+    setUsername(name);
     setSessionId(result.userId);
+    setDiscordLinked(isDiscordUser(identity.user));
     setLeadAccess(result.access);
     setShowLeadSignIn(false);
     setView("lead");
@@ -450,6 +499,7 @@ export function App() {
       return;
     }
     setLeadAccess(null);
+    setDiscordLinked(false);
     setView("board");
     closeTicket();
     setUsername("");
@@ -545,13 +595,31 @@ export function App() {
     );
   if (!username)
     return (
+      <>
       <EntryScreen
         draftUsername={draftUsername}
         setDraftUsername={setDraftUsername}
         onSubmit={enterBoard}
+        discord={
+          hasSupabaseConfig
+            ? {
+                busy: discordBusy,
+                notice: discordNotice,
+                onSignIn: () => void startDiscordSignIn(),
+                onLeadSignIn: () => setShowLeadSignIn(true),
+              }
+            : undefined
+        }
         darkMode={darkMode}
         onToggleTheme={() => setDarkMode((current) => !current)}
       />
+      {showLeadSignIn && (
+        <LeadSignIn
+          onClose={() => setShowLeadSignIn(false)}
+          onSubmit={handleLeadSignIn}
+        />
+      )}
+      </>
     );
   return (
     <div className="app-shell">
@@ -610,7 +678,25 @@ export function App() {
                       {isAdmin ? "Administrator" : "Lead session"}
                     </span>
                   )}
+                  {!leadAccess && hasSupabaseConfig && (
+                    <span className="identity-role">
+                      <ShieldCheck size={13} />{" "}
+                      {discordLinked
+                        ? "Verified with Discord"
+                        : "This browser only"}
+                    </span>
+                  )}
                 </p>
+                {!leadAccess && hasSupabaseConfig && !discordLinked && (
+                  <button
+                    className="button primary full identity-lead"
+                    type="button"
+                    disabled={discordBusy}
+                    onClick={() => void startDiscordSignIn()}
+                  >
+                    <LogIn size={15} /> Connect Discord
+                  </button>
+                )}
                 {!leadAccess && (
                   <button
                     className="button outline full identity-lead"
@@ -747,6 +833,15 @@ export function App() {
           </div>
         </aside>
         <main className="main-content">
+          {hasSupabaseConfig && !leadAccess && (discordNotice || !discordLinked) && (
+            <DiscordBanner
+              notice={discordNotice}
+              busy={discordBusy}
+              linked={discordLinked}
+              onConnect={() => void startDiscordSignIn()}
+              onDismiss={() => setDiscordNotice(null)}
+            />
+          )}
           {selected ? (
             <SessionTicketDetail
               ticket={selected}
@@ -856,19 +951,93 @@ export function App() {
   );
 }
 
+type DiscordNotice = { message: string; tone: "info" | "error" } | null;
+
+// Prompts guest members (identity saved only in this browser) to sign in with
+// Discord, and reports merge results and sign-in problems.
+function DiscordBanner({
+  notice,
+  linked,
+  busy,
+  onConnect,
+  onDismiss,
+}: {
+  notice: DiscordNotice;
+  linked: boolean;
+  busy: boolean;
+  onConnect: () => void;
+  onDismiss: () => void;
+}) {
+  if (notice)
+    return (
+      <div
+        className={`discord-banner ${notice.tone === "error" ? "warning" : ""}`}
+        role={notice.tone === "error" ? "alert" : "status"}
+      >
+        {notice.tone === "error" ? <CircleAlert size={18} /> : <Check size={18} />}
+        <div>
+          <strong>{notice.message}</strong>
+        </div>
+        <div className="discord-banner-actions">
+          {!linked && notice.tone === "error" && (
+            <button className="button primary" disabled={busy} onClick={onConnect}>
+              Try again
+            </button>
+          )}
+          <button className="button outline" onClick={onDismiss}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  return (
+    <div className="discord-banner">
+      <ShieldCheck size={18} />
+      <div>
+        <strong>Your tickets are only saved in this browser.</strong>
+        <span>
+          Connect Discord to keep them and use the board on any device.
+        </span>
+      </div>
+      <div className="discord-banner-actions">
+        <button
+          className="button primary"
+          disabled={busy}
+          onClick={onConnect}
+        >
+          <LogIn size={15} /> {busy ? "Opening Discord..." : "Connect Discord"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EntryScreen({
   draftUsername,
   setDraftUsername,
   onSubmit,
   darkMode,
   onToggleTheme,
+  discord,
 }: {
   draftUsername: string;
   setDraftUsername: (value: string) => void;
   onSubmit: (event: React.FormEvent) => void;
   darkMode: boolean;
   onToggleTheme: () => void;
+  // Set when Supabase is configured; demo mode keeps the typed display name.
+  discord?: {
+    busy: boolean;
+    notice: DiscordNotice;
+    onSignIn: () => void;
+    onLeadSignIn: () => void;
+  };
 }) {
+  function submit(event: React.FormEvent) {
+    if (!discord) return onSubmit(event);
+    event.preventDefault();
+    discord.onSignIn();
+  }
   return (
     <main className="entry-screen">
       <div className="entry-grid">
@@ -891,7 +1060,7 @@ function EntryScreen({
             </span>
           </div>
         </div>
-        <form className="entry-card" onSubmit={onSubmit}>
+        <form className="entry-card" onSubmit={submit}>
           <div className="entry-card-head">
             <p className="eyebrow">MEMBER ENTRY</p>
             <button
@@ -907,6 +1076,38 @@ function EntryScreen({
             </button>
           </div>
           <h2>Welcome to the board.</h2>
+          {discord ? (
+            <>
+              <p>
+                Sign in with Discord to join tickets and pick up your work on
+                any device.
+              </p>
+              {discord.notice && (
+                <p className="form-error" role="alert">
+                  {discord.notice.message}
+                </p>
+              )}
+              <button
+                className="button primary full"
+                type="submit"
+                disabled={discord.busy}
+              >
+                {discord.busy ? "Opening Discord..." : "Sign in with Discord"}{" "}
+                <ChevronRight size={17} />
+              </button>
+              <small className="fine-print">
+                Your name on the board is your Discord username.
+              </small>
+              <button
+                type="button"
+                className="entry-signin entry-lead-link"
+                onClick={discord.onLeadSignIn}
+              >
+                <ShieldCheck size={15} /> Lead? Sign in with your lead account.
+              </button>
+            </>
+          ) : (
+            <>
           <p>
             Enter your Discord username to view work and keep your progress
             attached to this browser session.
@@ -933,6 +1134,8 @@ function EntryScreen({
             <ShieldCheck size={15} /> Leads use the discreet sign-in inside the
             board.
           </div>
+            </>
+          )}
         </form>
       </div>
     </main>
