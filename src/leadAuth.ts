@@ -45,7 +45,7 @@ export async function signInLead(email: string, password: string) {
   const access = await loadLeadAccess(data.user.id);
   if (!access) {
     await supabase.auth.signOut();
-    throw new Error("This account is not authorized as a lead.");
+    throw new Error("This account is not authorized as a lead. If you moved your lead access to Discord, use Sign in with Discord instead.");
   }
   return { userId: data.user.id, access };
 }

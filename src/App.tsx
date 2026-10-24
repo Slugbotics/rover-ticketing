@@ -52,6 +52,7 @@ import {
   signInWithDiscord,
   claimGuestSessions,
   completePendingMerge,
+  moveLeadToDiscord,
   loadGuestSessions,
   loadMemberAccounts,
   mergeGuestSession,
@@ -176,36 +177,39 @@ export function App() {
       setDiscordNotice({ message: redirectError.description, tone: "error" });
     ensureMemberIdentity()
       .then(async (identity) => {
+        const discord = isDiscordUser(identity.user);
+        setDiscordLinked(discord);
+        if (discord) {
+          // Moves earlier work over after Discord sign-in: whatever this browser
+          // issued a merge token for (a guest session or a lead account), then
+          // any guest session whose typed name matches the Discord username.
+          // Runs before the lead check because a merge can bring lead access.
+          // Failures never block the board.
+          try {
+            const merged = await completePendingMerge();
+            const moved = (merged || 0) + (await claimGuestSessions());
+            if (moved || merged !== null)
+              setDiscordNotice({
+                message: moved
+                  ? `Moved ${moved} ticket${moved === 1 ? "" : "s"} from your earlier sessions to your Discord account.`
+                  : "Your earlier account is now merged into your Discord account.",
+                tone: "info",
+              });
+          } catch (error) {
+            setDiscordNotice({
+              message: errorMessage(error, "Could not move your earlier work to your Discord account."),
+              tone: "error",
+            });
+          }
+        }
         // A persisted non-anonymous session is a lead or a Discord member. Restore
         // lead access if it has any; drop sessions that are neither.
         if (!identity.user.is_anonymous) {
           const access = await loadLeadAccess(identity.user.id);
           if (access) setLeadAccess(access);
-          else if (!isDiscordUser(identity.user)) {
+          else if (!discord) {
             await endMemberIdentity();
             identity = await ensureMemberIdentity();
-          }
-        }
-        const discord = isDiscordUser(identity.user);
-        setDiscordLinked(discord);
-        if (discord) {
-          // Moves guest-session work over after Discord sign-in: this browser's
-          // own guest session (merge token), then any guest session whose typed
-          // name matches the Discord username. Failures never block the board.
-          try {
-            const moved =
-              ((await completePendingMerge()) || 0) +
-              (await claimGuestSessions());
-            if (moved)
-              setDiscordNotice({
-                message: `Moved ${moved} ticket${moved === 1 ? "" : "s"} from your earlier sessions to your Discord account.`,
-                tone: "info",
-              });
-          } catch (error) {
-            setDiscordNotice({
-              message: errorMessage(error, "Could not move this browser's tickets to your Discord account."),
-              tone: "error",
-            });
           }
         }
         setSessionId(identity.user.id);
@@ -469,11 +473,15 @@ export function App() {
   }
 
   // Redirects to Discord on success, so only failures return here.
+  // A lead on an email/password account moves its lead access to Discord;
+  // everyone else signs in (merging this browser's guest work if any).
   async function startDiscordSignIn() {
     setDiscordBusy(true);
     setDiscordNotice(null);
     try {
-      await signInWithDiscord();
+      await (leadAccess && !discordLinked
+        ? moveLeadToDiscord()
+        : signInWithDiscord());
     } catch (error) {
       setDiscordNotice({
         message: errorMessage(error, "Unable to start Discord sign-in."),
@@ -696,14 +704,15 @@ export function App() {
                     </span>
                   )}
                 </p>
-                {!leadAccess && hasSupabaseConfig && !discordLinked && (
+                {hasSupabaseConfig && !discordLinked && (
                   <button
                     className="button primary full identity-lead"
                     type="button"
                     disabled={discordBusy}
                     onClick={() => void startDiscordSignIn()}
                   >
-                    <LogIn size={15} /> Connect Discord
+                    <LogIn size={15} />{" "}
+                    {leadAccess ? "Move lead access to Discord" : "Connect Discord"}
                   </button>
                 )}
                 {!leadAccess && (
@@ -842,11 +851,12 @@ export function App() {
           </div>
         </aside>
         <main className="main-content">
-          {hasSupabaseConfig && !leadAccess && (discordNotice || !discordLinked) && (
+          {hasSupabaseConfig && (discordNotice || !discordLinked) && (
             <DiscordBanner
               notice={discordNotice}
               busy={discordBusy}
               linked={discordLinked}
+              lead={Boolean(leadAccess)}
               onConnect={() => void startDiscordSignIn()}
               onDismiss={() => setDiscordNotice(null)}
             />
@@ -967,12 +977,14 @@ type DiscordNotice = { message: string; tone: "info" | "error" } | null;
 function DiscordBanner({
   notice,
   linked,
+  lead,
   busy,
   onConnect,
   onDismiss,
 }: {
   notice: DiscordNotice;
   linked: boolean;
+  lead: boolean;
   busy: boolean;
   onConnect: () => void;
   onDismiss: () => void;
@@ -1003,9 +1015,15 @@ function DiscordBanner({
     <div className="discord-banner">
       <ShieldCheck size={18} />
       <div>
-        <strong>Your tickets are only saved in this browser.</strong>
+        <strong>
+          {lead
+            ? "You're signed in with your separate lead account."
+            : "Your tickets are only saved in this browser."}
+        </strong>
         <span>
-          Connect Discord to keep them and use the board on any device.
+          {lead
+            ? "Move your lead access to your Discord account so your tickets and lead tools are in one place. Afterwards, sign in with Discord."
+            : "Connect Discord to keep them and use the board on any device."}
         </span>
       </div>
       <div className="discord-banner-actions">
@@ -1014,7 +1032,12 @@ function DiscordBanner({
           disabled={busy}
           onClick={onConnect}
         >
-          <LogIn size={15} /> {busy ? "Opening Discord..." : "Connect Discord"}
+          <LogIn size={15} />{" "}
+          {busy
+            ? "Opening Discord..."
+            : lead
+              ? "Move lead access to Discord"
+              : "Connect Discord"}
         </button>
       </div>
     </div>

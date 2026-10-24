@@ -92,7 +92,19 @@ export async function signInWithDiscord() {
   if (error) throw error
 }
 
-// Redeems a merge token left by signInWithDiscord. Returns the number of
+// For leads signed in with email/password: issues a merge token from the lead
+// account, then signs in with Discord, which redeems it and takes over the
+// lead access and work.
+export async function moveLeadToDiscord() {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  const { data, error } = await supabase.rpc('create_account_merge')
+  if (error) throw error
+  sessionStorage.setItem(mergeTokenKey, data)
+  const { error: signInError } = await supabase.auth.signInWithOAuth({ provider: 'discord', options: { redirectTo: returnUrl() } })
+  if (signInError) throw signInError
+}
+
+// Redeems a merge token left by signInWithDiscord or moveLeadToDiscord. Returns the number of
 // tickets moved, or null when there was nothing to merge.
 export async function completePendingMerge(): Promise<number | null> {
   if (!supabase) return null
